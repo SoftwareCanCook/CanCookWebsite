@@ -60,9 +60,9 @@ h1 {
     padding: 10px;
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
-    scrollbar-width: none;
+    /*scrollbar-width: none;
     -ms-overflow-style: none;
-    .container::-webkit-scrollbar { display: none; }
+    .container::-webkit-scrollbar { display: none; }*/
 }
 .card {
     position: relative;
@@ -95,7 +95,5 @@ footer {
     z-index: 1000;
 }
 footer p {
-    color: white;
-    text-align: center;
     padding: 10px 10px;
 }
