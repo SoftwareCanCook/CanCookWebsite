@@ -32,7 +32,7 @@ h1 {
     padding: 10px 10px 10px;
     position: sticky;
     top: 0;
-    z-index: 1000;
+    z-index: 100;
 }
 .navbar a {
     color: white;
@@ -84,6 +84,53 @@ h1 {
     color: black;
     font-weight: bold;
 }
+.overlay-text a {
+    color: black;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+/* Popup Styles */
+.popup {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+.popup-content {
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+    z-index:102;
+}
+/* X at the top right of the popup box */
+.popup-content a {
+    position: relative;
+    top: -10px;
+    left: 50%;
+    text-decoration: none;
+    font-size: 1.25rem;
+    color: #000;
+}
+.popup:target {
+    display: flex;
+}
+.popup-return {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 101;
+  cursor: default;
+}
 
 /* Footer */
 footer {
@@ -92,7 +139,7 @@ footer {
     text-align: center;
     bottom: 0;
     width: 100%;
-    z-index: 1000;
+    z-index: 100;
 }
 footer p {
     padding: 10px 10px;
