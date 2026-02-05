@@ -104,6 +104,10 @@ h1 {
     z-index: 100;
 }
 .popup-content {
+    max-height: 75vh;
+    max-width: 75vw;
+    overflow-x: auto;
+    overflow-y: auto;
     background: #fff;
     padding: 20px;
     border-radius: 5px;
