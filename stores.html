@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Can Cook</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="logo">Can Cook</div>
+        <div>
+            <a href="index.html">Home</a>
+            <a href="pantry.html">Pantry</a>
+            <a href="stores.html">Stores</a>
+            <a href="login.html">Login</a>
+        </div>
+        <search>
+            <form action="/search" method="get">
+                <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
+            </form>
+        </search>
+    </nav>
+
+    <!-- Welcome Paragraph -->
+    <div class="content">
+        <h1>Welcome to our grocery store database!</h1>
+        <p>Where you can add food items to your pantry so you CanCook some delicious recipes.</p>
+    </div>
+
+    <!-- Store Links -->
+    <div class="store-container">
+        <div class="card">
+            <div class="store-popup"><a href="#walmart"></a></div>
+            <img src="apple.jpg" alt="Description">
+        </div>
+        <div class="store-description">
+            <h2>Walmart</h2>
+            <p>This is a description with some store information (address, phone, etc).</p>
+        </div>
+    </div>
+    <div class="store-container">
+        <div class="card">
+            <div class="store-popup"><a href="#meijer"></a></div>
+            <img src="apple.jpg" alt="Description">
+        </div>
+        <div class="store-description">
+            <h2>Meijer</h2>
+            <p>This is a description with some store information (address, phone, etc).</p>
+        </div>
+    </div>
+    <div class="store-container">
+        <div class="card">
+            <div class="store-popup"><a href="#kroger"></a></div>
+            <img src="apple.jpg" alt="Description">
+        </div>
+        <div class="store-description">
+            <h2>Kroger</h2>
+            <p>This is a description with some store information (address, phone, etc).</p>
+        </div>
+    </div>
+
+    <!-- Store Popups -->
+    <div id="walmart" class="popup">
+        <div class="popup-content">
+            <a href="#">X</a>
+            <h1>Walmart</h1>
+            <p>This is the grocery page for Walmart.</p>
+        </div>
+        <a href="#" class="popup-return"></a>
+    </div>
+    <div id="meijer" class="popup">
+        <div class="popup-content">
+            <a href="#">X</a>
+            <h1>Meijer</h1>
+            <p>This is the grocery page for Meijer.</p>
+        </div>
+        <a href="#" class="popup-return"></a>
+    </div>
+    <div id="kroger" class="popup">
+        <div class="popup-content">
+            <a href="#">X</a>
+            <h1>Kroger</h1>
+            <p>This is the grocery page for Kroger.</p>
+        </div>
+        <a href="#" class="popup-return"></a>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 - Can Cook - By team C(ooked)++</p>
+    </footer>
+
+</body>
+</html>
