@@ -256,8 +256,7 @@ footer {
         align-items: left;
         gap: 10px;
     }
-    .instructions ol {
-    }
+    
     .instructions li {
         margin-bottom: 25px;
         text-align:left;
