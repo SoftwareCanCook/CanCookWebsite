@@ -210,6 +210,7 @@ footer {
 
 /* Recipe Page Styles */
 .recipe-page {
+    margin: 30px;
     hr{
         border: 0;
         height: 3px;
@@ -219,8 +220,6 @@ footer {
     h2 {
         font-size: 1.5rem;
         margin-bottom: 20px;
-        border-left: 5px solid #ff6b6b;
-        padding-left: 15px;
     }
     .recipe-image {
         width: 100%;
@@ -231,7 +230,6 @@ footer {
         align-items: center;
     }
     .recipe-header {
-        padding: 30px;
         text-align: center;
     }
     .rating-display {
@@ -253,18 +251,16 @@ footer {
         margin-bottom: 40px;
     }
     .ingredients li {
-        padding: 10px 0;
-        border-bottom: 1px solid #f0f0f0;
+        margin-bottom: 20px;
         display: flex;
-        align-items: center;
+        align-items: left;
         gap: 10px;
     }
     .instructions ol {
-        padding-left: 20px;
     }
     .instructions li {
         margin-bottom: 25px;
-        padding-left: 10px;
+        text-align:left;
     }
     .instructions h3 {
         font-size: 1.1rem;
@@ -272,19 +268,22 @@ footer {
         color: #444;
     }
     .comments-section {
-        padding: 40px;
-        background-color: #fafafa;
+        background-color: white;
     }
     .comment {
         background: white;
-        padding: 20px;
         border-radius: 8px;
         margin-bottom: 20px;
-        border: 1px solid #eee;
+        border: 1px solid #aeacac;
+        text-align: left;
+        margin: 10px;
+        p{
+            margin:10px;
+        }
     }
     .comment-header {
         display: flex;
         justify-content: space-between;
-        margin-bottom: 10px;
+        margin: 10px;
     }
 }
