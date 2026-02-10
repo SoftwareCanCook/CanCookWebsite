@@ -227,10 +227,8 @@ footer {
         max-width: 600px;
         height: auto;
         border-radius: 12px;
-        margin-left: 650px;
-        margin-right: auto;
-        margin-top: auto;
-        margin-bottom: auto;
+        position: relative;
+        align-items: center;
     }
     .recipe-header {
         padding: 30px;
