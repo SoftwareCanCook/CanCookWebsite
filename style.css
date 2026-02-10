@@ -211,10 +211,11 @@ footer {
 /* Recipe Page Styles */
 .recipe-page {
     margin: 30px;
+    background-color: white;
+    text-align:center;
     hr{
         border: 0;
         height: 3px;
-        background: #eee;
         margin: 0;
     }
     h2 {
@@ -244,11 +245,13 @@ footer {
         font-size: 1.5rem;
     }
     .recipe-content {
-        padding: 40px;
+        padding: 10px;
+        
     }
     .ingredients ul {
-        list-style: none;
+        text-align: left;
         margin-bottom: 40px;
+        list-style-type: disc;
     }
     .ingredients li {
         margin-bottom: 20px;
@@ -260,17 +263,14 @@ footer {
     .instructions li {
         margin-bottom: 25px;
         text-align:left;
+        align-items:left;
     }
     .instructions h3 {
         font-size: 1.1rem;
         margin-bottom: 5px;
         color: #444;
     }
-    .comments-section {
-        background-color: white;
-    }
     .comment {
-        background: white;
         border-radius: 8px;
         margin-bottom: 20px;
         border: 1px solid #aeacac;
