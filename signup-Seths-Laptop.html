@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Can Cook - Sign Up</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="logo">Can Cook</div>
+        <div>
+            <a href="index.html">Home</a>
+            <a href="pantry.html">Pantry</a>
+            <a href="stores.html">Stores</a>
+            <a href="login.html">Login</a>
+        </div>
+        <search>
+            <form action="/search" method="get">
+                <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
+            </form>
+        </search>
+    </nav>
+
+    <!-- Sign Up -->
+    <div class="content">
+        <div class="login-container">
+            <h2>Sign Up</h2>
+            <form onsubmit="handleSignup(event)">
+                <label for="email">Email</label>
+                <input type="email" id="email" aria-label="Enter your email" required>
+                <br><br>
+                <label for="userUsername">Username</label>
+                <input type="text" id="userUsername" aria-label="Enter a username" required>
+                <br><br>
+                <label for="userPassword">Password</label>
+                <input type="password" id="userPassword" aria-label="Enter a password" required>
+                <br><br>
+                <button type="submit">Sign Up</button>
+            </form>
+            <a href="login.html"><button style="margin-top: 10px;">Back to Login</button></a>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 - Can Cook - By team C(ooked)++</p>
+    </footer>
+
+</body>
+</html>
