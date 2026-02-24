@@ -124,6 +124,11 @@ function updateNavbar() {
                 <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
             `;
         }
+        // Find the pantry link and make it visible
+        const pantryLink = navbar.querySelector('a[href="pantry.html"]');
+        if (pantryLink) {
+            pantryLink.outerHTML = `<a href="pantry.html">Pantry</a>`;
+        }
     }
 }
 
