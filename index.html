@@ -102,14 +102,13 @@
         <!-- Full Recipe Popup-->
         <div id="popup" class="popup">
             <div class="popup-content">
-                <a href="#">X</a>
-                <div class = "recipe-page">
+                <a href="#">X</a>  
+
                     <div class = "recipe-image">
                         <!--Retrieve recipe image-->
                         <img src="apple.jpg" alt="Recipe Image">
                     </div>
-                    <!--Retrieve recipe name-->
-                    <h1>Uncooked Apple</h1>
+                    <h1 id="recipeName">Uncooked Apple</h1>
                     <div class="meta-info">
                         <span class="label">Cook Time</span>
                         <!--Retrieve cook time-->
@@ -119,7 +118,7 @@
                         <!--Retrieve recipe rating-->
                         <!-- We don't have to get an average rating if we don't have time to implement-->
                         <span class="stars">★★★★☆</span>
-                        <span class="rating-value">4.0</span>
+                        <span id="rating" class="rating-value">4.0</span>
                     </div>
                 
                     <!--Ingredients and instructions-->
