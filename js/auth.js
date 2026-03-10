@@ -75,6 +75,12 @@ class AuthService {
         }
         return true;
     }
+
+    // Get current user's store ID (for grocery store users)
+    static getStoreId() {
+        const user = this.get();
+        return user ? user.store_id : null;
+    }
 }
 
 // Handle login form submission
@@ -86,8 +92,18 @@ async function handleLogin(event) {
     
     try {
         await AuthService.login(username, password);
-        // Redirect to home page after successful login
-        window.location.href = 'index.html';
+        // Redirect to the correct page after login
+        // If user, then redirect to index.html
+        // If admin, then redirect to admin.html
+        // If grocery, then redirect to grocery.html
+        const user = AuthService.getUser();
+        if (user && user.role == 'user') {
+            window.location.href = 'index.html';
+        } else if (user && user.role == 'admin') {
+            window.location.href = 'admin.html';
+        } else if (user && user.role == 'grocery') {
+            window.location.href = 'grocery.html';
+        }
     } catch (error) {
         alert('Login failed: ' + error.message);
     }
@@ -103,7 +119,7 @@ async function handleSignup(event) {
     
     try {
         await AuthService.signup(email, username, password);
-        // Redirect to home page after successful signup
+        // Redirect to the home page after signup
         window.location.href = 'index.html';
     } catch (error) {
         alert('Signup failed: ' + error.message);
@@ -115,19 +131,72 @@ function updateNavbar() {
     const user = AuthService.getUser();
     const navbar = document.querySelector('.navbar');
     
+    if (navbar) {
+        // The user is initially logged out, show the logged out navbar
+        navbar.innerHTML = `
+            <div class="logo">Can Cook</div>
+            <div>
+                <a href="index.html">Home</a>
+                <a href="stores.html">Stores</a>
+                <a href="login.html">Login</a>
+                <span style="color: white; margin-right: 10px;">Welcome, ${user.username}! You are a ${user.role}.</span>
+            </div>
+            <search>
+                <form action="/search" method="get">
+                    <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
+                </form>
+            </search>
+        `;
+    }
+
     if (user && navbar) {
-        // Find the login link and replace with user info and logout
+        /*// Find the login link and replace with user info and logout
         const loginLink = navbar.querySelector('a[href="login.html"]');
         if (loginLink) {
             loginLink.outerHTML = `
                 <span style="color: white; margin-right: 10px;">Welcome, ${user.username}!</span>
                 <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
             `;
-        }
-        // Find the pantry link and make it visible
-        const pantryLink = navbar.querySelector('a[href="pantry.html"]');
-        if (pantryLink) {
-            pantryLink.outerHTML = `<a href="pantry.html">Pantry</a>`;
+        }*/
+        
+        // Further adjust the navbar based on user role
+        if (user.role == 'user') {
+            // The user is a regular user, show index.html, pantry.html, stores.html, and logout
+            navbar.innerHTML = `
+                <div class="logo">Can Cook</div>
+                <div>
+                    <a href="index.html">Home</a>
+                    <a href="pantry.html">Pantry</a>
+                    <a href="stores.html">Grocery Stores</a>
+                    <span style="color: white; margin-right: 10px;">Welcome, ${user.username}!</span>
+                    <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
+                </div>
+                <search>
+                    <form action="/search" method="get">
+                        <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
+                    </form>
+                </search>
+            `;
+        } else if (user.role == 'admin') {
+            // The user is an admin, only show logout and admin.html
+            navbar.innerHTML = `
+                <div class="logo">Can Cook</div>
+                <div>
+                    <a href="admin.html">Admin Panel</a>
+                    <span style="color: white; margin-right: 10px;">Welcome, ${user.username}!</span>
+                    <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
+                </div>
+            `;
+        } else if (user.role == 'grocery') {
+            // The user is a grocery store, only show logout and grocery.html
+            navbar.innerHTML = `
+                <div class="logo">Can Cook</div>
+                <div>
+                    <a href="grocery.html">Grocery Store Panel</a>
+                    <span style="color: white; margin-right: 10px;">Welcome, ${user.username}!</span>
+                    <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
+                </div>
+            `;
         }
     }
 }
