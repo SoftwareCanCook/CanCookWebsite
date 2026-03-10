@@ -128,9 +128,7 @@ async function handleSignup(event) {
 
 // Update navbar based on auth status
 function updateNavbar() {
-    const user = AuthService.getUser();
     const navbar = document.querySelector('.navbar');
-    
     if (navbar) {
         // The user is initially logged out, show the logged out navbar
         navbar.innerHTML = `
@@ -139,7 +137,6 @@ function updateNavbar() {
                 <a href="index.html">Home</a>
                 <a href="stores.html">Stores</a>
                 <a href="login.html">Login</a>
-                <span style="color: white; margin-right: 10px;">Welcome, ${user.username}! You are a ${user.role}.</span>
             </div>
             <search>
                 <form action="/search" method="get">
@@ -149,16 +146,8 @@ function updateNavbar() {
         `;
     }
 
+    const user = AuthService.getUser();
     if (user && navbar) {
-        /*// Find the login link and replace with user info and logout
-        const loginLink = navbar.querySelector('a[href="login.html"]');
-        if (loginLink) {
-            loginLink.outerHTML = `
-                <span style="color: white; margin-right: 10px;">Welcome, ${user.username}!</span>
-                <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
-            `;
-        }*/
-        
         // Further adjust the navbar based on user role
         if (user.role == 'user') {
             // The user is a regular user, show index.html, pantry.html, stores.html, and logout
