@@ -91,62 +91,65 @@
             <div class="popup-content">
                 <a href="#">X</a>  
                     <div class = "recipe-page">
-                    <div class = "recipe-image">
-                        <!--Retrieve recipe image-->
-                        <img src="apple.jpg" alt="Recipe Image">
-                    </div>
-                    <h1 id="recipeName">Uncooked Apple</h1>
-                    <div class="meta-info">
-                        <span class="label">Cook Time</span>
-                        <!--Retrieve cook time-->
-                        <span class="value">5-7 years</span>
-                    </div>
-                    <div class = "rating-display">
-                        <!--Retrieve recipe rating-->
-                        <!-- We don't have to get an average rating if we don't have time to implement-->
-                        <span class="stars">★★★★☆</span>
-                        <span id="rating" class="rating-value">4.0</span>
-                    </div>
-                
-                    <!--Ingredients and instructions-->
-                    <div class="recipe-content">
-                        <section class="ingredients">
-                            <!--Retrieve ingredients-->
-                            <h2>Ingredients</h2>
-                            <ul style="list-style-type: disc">
-                                <li>One apple seed</li>
-                            </ul>
-                        </section>
-                        <section class="instructions">
-                            <!--Retrieve instructions-->
-                            <h2>Instructions</h2>
-                            <ol>
-                                <li>Plant the seed in soil.</li>
-                                <li>Water it regularly.</li>
-                                <li>Wait for several years.</li>
-                                <li>Enjoy your apple!</li>
-                            </ol>
-                        </section>
-                    </div>
-                    <!--Comments section-->
-                    <div class="comments-section">
-                        <h2>Reviews & Comments</h2>
-                        <!--Retrieve comments and ratings-->
-                        <div class="comment">
-                            <div class="comment-header">
-                                <strong>Joe Johnson</strong>
-                                <span class="stars">★★★★☆</span>
-                            </div>
-                            <p>This apple recipe was a bit time-consuming but the result was delicious!</p>
+
+                        <script src="js/recipes.js">showRecipeDetails(1)</script>
+
+                        <div class = "recipe-image">
+                            <!--Retrieve recipe image-->
+                            <img src="apple.jpg" alt="Recipe Image">
                         </div>
-                        <div class="comment">
-                            <div class="comment-header">
-                                <strong>Bob</strong>
-                                <span class="stars">★☆☆☆☆</span>
-                            </div>
-                            <p>I hate apples!</p>
+                        <h1 id="name">Loading recipe name...</h1>
+                        <div class="meta-info">
+                            <span class="label">Cook Time</span>
+                            <!--Retrieve cook time-->
+                            <span id="cookTime" class="value">Loading cook time...</span>
                         </div>
-                    </div>
+                        <div class = "rating-display">
+                            <!--Retrieve recipe rating-->
+                            <!-- We don't have to get an average rating if we don't have time to implement-->
+                            <span class="stars">loading rating...</span>
+                            <span id="rating" class="rating-value">loading...</span>
+                        </div>
+                    
+                        <!--Ingredients and instructions-->
+                        <div class="recipe-content">
+                            <section class="ingredients">
+                                <!--Retrieve ingredients-->
+                                <h2>Ingredients</h2>
+                                <ul style="list-style-type: disc">
+                                    <li>One apple seed</li>
+                                </ul>
+                            </section>
+                            <section class="instructions">
+                                <!--Retrieve instructions-->
+                                <h2>Instructions</h2>
+                                <ol>
+                                    <li>Plant the seed in soil.</li>
+                                    <li>Water it regularly.</li>
+                                    <li>Wait for several years.</li>
+                                    <li>Enjoy your apple!</li>
+                                </ol>
+                            </section>
+                        </div>
+                        <!--Comments section-->
+                        <div class="comments-section">
+                            <h2>Reviews & Comments</h2>
+                            <!--Retrieve comments and ratings-->
+                            <div class="comment">
+                                <div class="comment-header">
+                                    <strong>Joe Johnson</strong>
+                                    <span class="stars">★★★★☆</span>
+                                </div>
+                                <p>This apple recipe was a bit time-consuming but the result was delicious!</p>
+                            </div>
+                            <div class="comment">
+                                <div class="comment-header">
+                                    <strong>Bob</strong>
+                                    <span class="stars">★☆☆☆☆</span>
+                                </div>
+                                <p>I hate apples!</p>
+                            </div>
+                        </div>
                 </div>
             </div>
             <a href="#" class="popup-return"></a>
