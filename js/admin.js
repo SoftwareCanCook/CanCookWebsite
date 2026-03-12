@@ -24,7 +24,17 @@ class AdminService {
     // Update user details (role, store_id, etc.)
     static async updateUser(userId, userData) {
         try {
-            return await ApiService.put(API_CONFIG.ENDPOINTS.USER + '/' + userId, userData);
+            console.log('=== UPDATE USER API CALL ===');
+            console.log('User ID:', userId);
+            console.log('Update Data:', userData);
+            console.log('API URL:', API_CONFIG.ENDPOINTS.USER + '/' + userId);
+            
+            const result = await ApiService.put(API_CONFIG.ENDPOINTS.USER + '/' + userId, userData);
+            
+            console.log('=== API RESPONSE ===');
+            console.log('Response:', result);
+            
+            return result;
         } catch (error) {
             console.error('Failed to update user:', error);
             throw error;
@@ -38,10 +48,10 @@ class AdminService {
             
             // Try different data formats that the backend might accept
             const dataFormats = [
-                { isActive: 1, loginAttempts: 0, status: 1 },  // camelCase with status = 1
-                { is_active: 1, login_attempts: 0, status: 1 }, // snake_case with status = 1
-                { status: 1, login_attempts: 0 }, // minimal format
-                { status: 1, loginAttempts: 0 }, // camelCase minimal
+                { isActive: 1, loginAttempts: 0, status: 1 },
+                { is_active: 1, login_attempts: 0, status: 1 },
+                { status: 1, login_attempts: 0 },
+                { status: 1, loginAttempts: 0 },
             ];
             
             for (let i = 0; i < dataFormats.length; i++) {
@@ -53,10 +63,8 @@ class AdminService {
                 } catch (error) {
                     console.log(`Format ${i + 1} failed:`, error.message);
                     if (i === dataFormats.length - 1) {
-                        // Last attempt failed, throw error
                         throw error;
                     }
-                    // Continue to next format
                 }
             }
         } catch (error) {
@@ -74,6 +82,40 @@ class AdminService {
             throw error;
         }
     }
+    
+    // Get pending accounts (accounts waiting for approval)
+    static async getPendingAccounts() {
+        try {
+            return await ApiService.get(API_CONFIG.ENDPOINTS.USER + '/pending');
+        } catch (error) {
+            console.error('Failed to fetch pending accounts:', error);
+            return [];
+        }
+    }
+    
+    // Approve a pending account
+    static async approveAccount(userId) {
+        try {
+            return await ApiService.put(API_CONFIG.ENDPOINTS.USER + '/' + userId + '/approve', {
+                approved: true,
+                is_approved: true,
+                status: 1
+            });
+        } catch (error) {
+            console.error('Failed to approve account:', error);
+            throw error;
+        }
+    }
+    
+    // Deny a pending account
+    static async denyAccount(userId) {
+        try {
+            return await ApiService.delete(API_CONFIG.ENDPOINTS.USER + '/' + userId);
+        } catch (error) {
+            console.error('Failed to deny account:', error);
+            throw error;
+        }
+    }
 }
 
 // Load and display all users
@@ -87,12 +129,12 @@ async function loadAllUsers() {
         console.log('Raw API response:', response);
         
         // Handle different response structures
-        const users = response.rows || response.data || response || [];
+        const users = Array.isArray(response) ? response : (response.rows || response.data || response || []);
         console.log('Parsed users array:', users);
         
         // Also load stores for the dropdown
         const storesResponse = await AdminService.getAllStores();
-        const stores = storesResponse.rows || storesResponse.data || storesResponse || [];
+        const stores = Array.isArray(storesResponse) ? storesResponse : (storesResponse.rows || storesResponse.data || storesResponse || []);
         console.log('Available stores:', stores);
         
         const table = document.getElementById('users-table');
@@ -117,9 +159,11 @@ async function loadAllUsers() {
             
             // Data rows
             users.forEach(user => {
-                console.log('Processing user:', user);
-                console.log('User status:', user.status, 'Type:', typeof user.status);
-                console.log('User login_attempts:', user.login_attempts);
+                console.log('=== USER DATA ===');
+                console.log('User ID:', user.id, 'Username:', user.username);
+                console.log('Role:', user.role);
+                console.log('Store ID:', user.store_id, 'Type:', typeof user.store_id);
+                console.log('Status:', user.status, 'Type:', typeof user.status);
                 
                 // Check if account is locked - status = 0 means locked, status = 1 means active
                 const isLocked = user.status === 0 || user.status === '0' || user.status === false;
@@ -224,6 +268,11 @@ async function saveUser(userId) {
     const role = row.querySelector('td:nth-child(4) .edit-mode').value;
     const storeId = row.querySelector('td:nth-child(5) .edit-mode').value;
     
+    console.log('=== SAVE USER ===');
+    console.log('User ID:', userId);
+    console.log('Role:', role);
+    console.log('Store ID:', storeId);
+    
     if (!username || !email) {
         alert('Username and email are required');
         return;
@@ -243,14 +292,22 @@ async function saveUser(userId) {
                 return;
             }
             updateData.store_id = parseInt(storeId);
+            console.log('Adding store_id to update:', updateData.store_id);
         } else {
             // Clear store_id for non-grocery roles
             updateData.store_id = null;
         }
         
-        await AdminService.updateUser(userId, updateData);
+        console.log('Calling AdminService.updateUser with:', updateData);
+        const result = await AdminService.updateUser(userId, updateData);
+        console.log('Update result:', result);
+        
         alert('User updated successfully!');
-        loadAllUsers(); // Reload to show changes
+        
+        console.log('Reloading users to verify update...');
+        await loadAllUsers(); // Reload to show changes
+        
+        console.log('=== SAVE COMPLETE ===');
     } catch (error) {
         console.error('Failed to save user:', error);
         alert('Failed to save user: ' + error.message);
@@ -280,7 +337,7 @@ async function unlockUser(userId) {
 async function loadAllStores() {
     try {
         const response = await AdminService.getAllStores();
-        const stores = response.rows || response.data || response || [];
+        const stores = Array.isArray(response) ? response : (response.rows || response.data || response || []);
         const table = document.getElementById('stores-table');
         
         if (table && stores && stores.length > 0) {
@@ -365,7 +422,106 @@ async function handleAddStore() {
 // Initialize admin page
 document.addEventListener('DOMContentLoaded', () => {
     if (window.location.pathname.includes('admin.html')) {
+        loadPendingAccounts();
         loadAllUsers();
         loadAllStores();
     }
 });
+
+// Load and display pending accounts
+async function loadPendingAccounts() {
+    if (!AuthService.requireRole(['admin'])) {
+        return;
+    }
+    
+    try {
+        const response = await AdminService.getPendingAccounts();
+        const pendingAccounts = response.rows || response.data || response || [];
+        
+        const table = document.getElementById('pending-accounts-table');
+        
+        if (table) {
+            if (pendingAccounts && pendingAccounts.length > 0) {
+                let tableHTML = '<caption><strong>⏳ Accounts Awaiting Approval</strong></caption>';
+                
+                tableHTML += `
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Requested Role</th>
+                        <th>Registered Date</th>
+                        <th>Actions</th>
+                    </tr>
+                `;
+                
+                pendingAccounts.forEach(account => {
+                    const registeredDate = account.created_at ? new Date(account.created_at).toLocaleDateString() : 'N/A';
+                    
+                    tableHTML += `
+                        <tr style="background-color: #fff3e0;">
+                            <td>${account.id}</td>
+                            <td>${account.username || 'N/A'}</td>
+                            <td>${account.email || 'N/A'}</td>
+                            <td>${account.role || 'user'}</td>
+                            <td>${registeredDate}</td>
+                            <td>
+                                <button onclick="approveAccount(${account.id})" style="background-color: #4CAF50; color: white; padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; margin: 2px;">✓ Approve</button>
+                                <button onclick="denyAccount(${account.id})" style="background-color: #f44336; color: white; padding: 5px 15px; border: none; border-radius: 4px; cursor: pointer; margin: 2px;">✗ Deny</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                table.innerHTML = tableHTML;
+            } else {
+                table.innerHTML = `
+                    <caption><strong>Pending Account Approvals</strong></caption>
+                    <tr><td style="padding: 15px; color: #4CAF50;">✓ No pending accounts. All registrations have been processed!</td></tr>
+                `;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load pending accounts:', error);
+        const table = document.getElementById('pending-accounts-table');
+        if (table) {
+            table.innerHTML = `
+                <caption><strong>Pending Account Approvals</strong></caption>
+                <tr><td style="color: red;">Error loading pending accounts: ${error.message}</td></tr>
+            `;
+        }
+    }
+}
+
+// Approve a pending account
+async function approveAccount(userId) {
+    if (!confirm('Are you sure you want to approve this account?')) {
+        return;
+    }
+    
+    try {
+        await AdminService.approveAccount(userId);
+        alert('Account approved successfully! The user can now log in.');
+        loadPendingAccounts();
+        loadAllUsers();
+    } catch (error) {
+        console.error('Failed to approve account:', error);
+        alert('Failed to approve account: ' + error.message);
+    }
+}
+
+// Deny a pending account
+async function denyAccount(userId) {
+    if (!confirm('Are you sure you want to deny and delete this account request? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        await AdminService.denyAccount(userId);
+        alert('Account request denied and deleted.');
+        loadPendingAccounts();
+    } catch (error) {
+        console.error('Failed to deny account:', error);
+        alert('Failed to deny account: ' + error.message);
+    }
+}

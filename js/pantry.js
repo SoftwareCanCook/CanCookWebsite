@@ -46,68 +46,85 @@ class PantryService {
 
 // Load and display pantry items
 async function loadPantryItems() {
-    if (!AuthService.requireAuth()) {
+    if (!AuthService.requireRole(['user'])) {
         return;
     }
     
     try {
-        const items = await PantryService.getPantryItems();
-        const table = document.querySelector('.content table');
+        const response = await PantryService.getPantryItems();
+        const items = response.rows || response.data || response || [];
         
-        if (table && items.length > 0) {
-            // Group items by category
-            const categories = {};
-            items.forEach(item => {
-                const category = item.category || 'Other';
-                if (!categories[category]) {
-                    categories[category] = [];
-                }
+        // Define the 5 required categories
+        const categories = {
+            'Produce': [],
+            'Meats & Seafood': [],
+            'Dairy': [],
+            'Bakery': [],
+            'Pantry Staples': []
+        };
+        
+        // Group items by category
+        items.forEach(item => {
+            const category = item.category || 'Pantry Staples';
+            if (categories[category]) {
                 categories[category].push(item);
-            });
-            
-            // Build table HTML
-            const categoryNames = Object.keys(categories);
-            const maxItems = Math.max(...categoryNames.map(cat => categories[cat].length));
-            
-            let tableHTML = '<caption><strong>Pantry Items</strong></caption>';
-            
-            // Header row
-            tableHTML += '<tr>';
-            categoryNames.forEach(cat => {
-                tableHTML += `<th colspan="2">${cat}</th>`;
-            });
-            tableHTML += '</tr>';
-            
-            // Data rows
-            for (let i = 0; i < maxItems; i++) {
-                tableHTML += '<tr>';
-                categoryNames.forEach(cat => {
-                    const item = categories[cat][i];
-                    if (item) {
-                        tableHTML += `
-                            <td>${item.name}</td>
-                            <td>
-                                ${item.quantity} ${item.unit}
-                                <button onclick="removePantryItem(${item.id})" style="margin-left: 5px;">×</button>
-                            </td>
-                        `;
-                    } else {
-                        tableHTML += '<td></td><td></td>';
-                    }
-                });
-                tableHTML += '</tr>';
+            } else {
+                categories['Pantry Staples'].push(item);
             }
-            
-            table.innerHTML = tableHTML;
-        } else if (table) {
-            table.innerHTML = `
-                <caption><strong>Pantry Items</strong></caption>
-                <tr><td colspan="10">No items in your pantry yet. Visit stores to add items!</td></tr>
-            `;
-        }
+        });
+        
+        // Populate each category table
+        populateCategoryTable('producTable', categories['Produce']);
+        populateCategoryTable('meatsTable', categories['Meats & Seafood']);
+        populateCategoryTable('dairyTable', categories['Dairy']);
+        populateCategoryTable('bakeryTable', categories['Bakery']);
+        populateCategoryTable('staplesTable', categories['Pantry Staples']);
+        
     } catch (error) {
         console.error('Failed to load pantry items:', error);
     }
+}
+
+// Populate a category table with items
+function populateCategoryTable(tableId, items) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    if (items.length === 0) {
+        table.innerHTML = '<tr><td style="padding: 10px; color: #999;">No items in this category yet</td></tr>';
+        return;
+    }
+    
+    let tableHTML = `
+        <tr>
+            <th style="width: 60px;">Image</th>
+            <th>Item Name</th>
+            <th>Store</th>
+            <th>Quantity</th>
+            <th style="width: 100px;">Actions</th>
+        </tr>
+    `;
+    
+    items.forEach(item => {
+        const imageUrl = item.image_url || item.imageUrl || 'apple.jpg';
+        const storeName = item.store_name || item.storeName || 'Unknown Store';
+        const quantity = item.quantity || 0;
+        const unit = item.unit || 'units';
+        
+        tableHTML += `
+            <tr>
+                <td><img src="${imageUrl}" alt="${item.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;"></td>
+                <td>${item.name || 'Unknown Item'}</td>
+                <td>${storeName}</td>
+                <td>${quantity} ${unit}</td>
+                <td>
+                    <button onclick="removePantryItem(${item.id})" style="background-color: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer;">Remove</button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    table.innerHTML = tableHTML;
 }
 
 // Remove pantry item

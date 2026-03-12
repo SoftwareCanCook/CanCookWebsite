@@ -20,15 +20,23 @@
         <h1>Welcome to the Can Cook admin panel!</h1>
         <p>Here you can manage user accounts by changing their emails, usernames, roles, store assignments, and unlock locked accounts.</p>
 
+        <!-- Pending Account Approvals -->
+        <h2 style="color: #FF9800;">📋 Pending Account Approvals</h2>
+        <p>Review and approve new account registrations. Users and Grocery Admins require admin approval before they can access the system.</p>
+        <table id="pending-accounts-table" style="margin-bottom: 30px;">
+        </table>
+        
+        <hr style="margin: 40px 0;">
+
         <!-- Display all users here -->
-        <h2>User Management</h2>
+        <h2>👥 Active User Management</h2>
         <table id="users-table">
         </table>
         
         <hr style="margin: 40px 0;">
         
         <!-- Store Management Section -->
-        <h2>Store Management</h2>
+        <h2>🏪 Store Management</h2>
         <p>Manage grocery stores in the system. Grocery admins can be assigned to these stores.</p>
         
         <div style="background-color: #f0f8ff; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
