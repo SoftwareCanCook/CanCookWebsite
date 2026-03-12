@@ -104,11 +104,11 @@ async function showRecipeDetail(recipeId) {
             recipePage.querySelector('.recipe-image img').src = recipe.imageUrl || 'apple.jpg';
             recipePage.querySelector('h1').textContent = recipe.name;
             recipePage.querySelector('.meta-info .value').textContent = recipe.cookTime;
-            recipePage.querySelector('.rating-value').textContent = recipe.averageRating || '0.0';
+            recipePage.querySelector('h3').textContent = recipe.averageRating || '0.0';
             
             // Update stars
             const stars = '★'.repeat(Math.round(recipe.averageRating || 0)) + '☆'.repeat(5 - Math.round(recipe.averageRating || 0));
-            recipePage.querySelector('.stars').textContent = stars;
+            recipePage.querySelector('h4').textContent = stars;
             
             // Update ingredients
             const ingredientsList = recipePage.querySelector('.ingredients ul');
