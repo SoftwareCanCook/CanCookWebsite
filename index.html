@@ -92,7 +92,7 @@
                 <a href="#">X</a>  
                     <div class = "recipe-page">
 
-                        <script src="js/recipes.js">showRecipeDetails(1)</script>
+                        
 
                         <div class = "recipe-image">
                             <!--Retrieve recipe image-->
@@ -101,34 +101,30 @@
                         <h1 id="name">Loading recipe name...</h1>
                         <div class="meta-info">
                             <span class="label">Cook Time:</span>
-                            <!--Retrieve cook time-->
+                           
                             <span id="cookTime" class="value">Loading...</span>
                         </div>
 
                         <div class = "rating-display">
-                            <!--Retrieve recipe rating-->
                             <!-- We don't have to get an average rating if we don't have time to implement-->
-                            <span id="stars" class="stars">☆☆☆☆☆</span>
-                            <span id="averageRating" class="rating-value">loading...</span>
+                            <h4 id="stars" class="stars">☆☆☆☆☆</span>
+                            <h3 id="averageRating" class="rating-value">loading...</span>
                         </div>
                     
                         <!--Ingredients and instructions-->
                         <div class="recipe-content">
                             <section class="ingredients">
-                                <!--Retrieve ingredients-->
                                 <h2>Ingredients</h2>
-                                <ul id="ingredientsList" style="list-style-type: disc">
-                                </ul>
+                                <ul id="ingredientsList" style="list-style-type: disc"></ul>
                             </section>
 
                             <section class="instructions">
-                                <!--Retrieve instructions-->
                                 <h2>Instructions</h2>
                                 <ol id="instructionsList">loading instructions...</ol>
                             </section>
 
                         </div>
-                        
+
                         <!--Comments section-->
                         <div class="comments-section">
                             <h2>Reviews & Comments</h2>
