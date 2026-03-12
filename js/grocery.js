@@ -24,7 +24,17 @@ class GroceryService {
     // Update an item
     static async updateItem(storeId, itemId, itemData) {
         try {
-            return await ApiService.put(API_CONFIG.ENDPOINTS.STORE_ITEMS + storeId + '/items/' + itemId, itemData);
+            console.log('=== UPDATE ITEM (FULL EDIT) ===');
+            console.log('Store ID:', storeId);
+            console.log('Item ID:', itemId);
+            console.log('Item Data:', itemData);
+            const result = await ApiService.put(API_CONFIG.ENDPOINTS.STORE_ITEMS + storeId + '/items/' + itemId, itemData);
+            console.log('=== UPDATE ITEM RESPONSE ===');
+            console.log('Response:', result);
+            console.log('Response.unit:', result.unit);
+            console.log('Response.image:', result.image ? `${result.image.substring(0, 50)}...` : 'null');
+            console.log('Response JSON:', JSON.stringify(result));
+            return result;
         } catch (error) {
             console.error('Failed to update item:', error);
             throw error;
@@ -101,27 +111,6 @@ function getGroceryStoreId() {
 }
 
 // Handle image upload
-function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-        alert('Image file is too large. Maximum size is 5MB.');
-        event.target.value = '';
-        return;
-    }
-    
-    // Convert to base64
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        // Store base64 in the URL field
-        document.getElementById('itemImageUrl').value = e.target.result;
-        console.log('Image converted to base64');
-    };
-    reader.readAsDataURL(file);
-}
-
 // Show item form for adding
 function showItemForm() {
     document.getElementById('itemFormTitle').textContent = 'Add New Item';
@@ -131,16 +120,15 @@ function showItemForm() {
 }
 
 // Show item form for editing
-function editItem(itemId, name, category, unit, price, quantity, imageUrl) {
+function editItem(itemId, name, category, unit, quantity, image) {
     document.getElementById('itemFormTitle').textContent = 'Edit Item';
     document.getElementById('editItemId').value = itemId;
     document.getElementById('itemName').value = name;
     document.getElementById('itemCategory').value = category;
     updateUnitOptions();
     document.getElementById('itemUnit').value = unit;
-    document.getElementById('itemPrice').value = price;
     document.getElementById('itemQuantity').value = quantity;
-    document.getElementById('itemImageUrl').value = imageUrl || '';
+    document.getElementById('itemImageUrl').value = image || '';
     document.getElementById('itemFormSection').style.display = 'block';
     
     // Scroll to form
@@ -159,18 +147,12 @@ async function saveItem() {
     const name = document.getElementById('itemName').value.trim();
     const category = document.getElementById('itemCategory').value;
     const unit = document.getElementById('itemUnit').value;
-    const price = parseFloat(document.getElementById('itemPrice').value);
     const quantity = parseInt(document.getElementById('itemQuantity').value);
     const imageUrl = document.getElementById('itemImageUrl').value.trim();
     
     // Validation
     if (!name || !category || !unit) {
         alert('Please fill in all required fields');
-        return;
-    }
-    
-    if (isNaN(price) || price < 0) {
-        alert('Please enter a valid price');
         return;
     }
     
@@ -185,30 +167,45 @@ async function saveItem() {
         return;
     }
     
+    // Validate image URL (no base64, only http/https URLs or empty)
+    if (imageUrl && !imageUrl.match(/^https?:\/\//i)) {
+        alert('Please enter a valid image URL starting with http:// or https://\nOr leave blank for default image.');
+        return;
+    }
+    
     const itemData = {
         name,
         category,
         unit,
-        price,
         quantity,
         stock: quantity,
-        image_url: imageUrl,
-        imageUrl: imageUrl
+        image: imageUrl || null  // Backend expects 'image' field
     };
+    
+    console.log('=== SAVE ITEM CALLED ===');
+    console.log('Item ID:', itemId, '(empty = new item)');
+    console.log('Image URL length:', imageUrl?.length || 0, 'chars');
+    console.log('Item Data to save:', itemData);
+    console.log('Item Data JSON:', JSON.stringify(itemData, null, 2));
     
     try {
         if (itemId) {
             // Update existing item
-            await GroceryService.updateItem(storeId, itemId, itemData);
+            console.log('=== CALLING UPDATE ITEM ===');
+            const result = await GroceryService.updateItem(storeId, itemId, itemData);
+            console.log('Update result:', result);
             alert('Item updated successfully!');
         } else {
             // Add new item
+            console.log('=== CALLING ADD ITEM ===');
             await GroceryService.addItem(storeId, itemData);
             alert('Item added successfully!');
         }
         
         cancelItemForm();
-        loadAllItems();
+        console.log('=== RELOADING ITEMS AFTER EDIT ===');
+        await loadAllItems();
+        console.log('=== RELOAD COMPLETE ===');
     } catch (error) {
         console.error('Failed to save item:', error);
         alert('Failed to save item: ' + error.message);
@@ -283,7 +280,7 @@ async function loadAllItems() {
                 return `<span style=\"color: ${color}; font-weight: bold;\">${cat}: ${count}/3</span>`;
             }).join(' | ');
             
-            tableHTML += `<tr><td colspan=\"8\" style=\"background-color: #f9f9f9; padding: 10px;\"><small>Category Status: ${summary}</small></td></tr>`;
+            tableHTML += `<tr><td colspan=\"6\" style=\"background-color: #f9f9f9; padding: 10px;\"><small>Category Status: ${summary}</small></td></tr>`;
 
             // Header row
             tableHTML += `
@@ -292,7 +289,6 @@ async function loadAllItems() {
                     <th>Name</th>   
                     <th>Category</th>
                     <th>Unit</th>
-                    <th>Price</th>
                     <th>Stock</th>
                     <th>Actions</th>
                 </tr>
@@ -302,15 +298,16 @@ async function loadAllItems() {
             if (items && items.length > 0) {
                 items.forEach(item => {
                     const quantity = item.quantity || item.stock || 0;
-                    const price = item.price || 0;
-                    const imageUrl = item.image_url || item.imageUrl || 'apple.jpg';
+                    const imageUrl = item.image || item.image_url || item.imageUrl || 'apple.jpg';
                     const unit = item.unit || 'units';
                     
                     // Log item 2 specifically for debugging
                     if (item.id === 2) {
                         console.log(`=== RENDERING ITEM 2 (Onions) ===`);
                         console.log(`Quantity from data: ${quantity}`);
-                        console.log(`Full item data:`, item);
+                        console.log(`Unit from data: ${unit}`);
+                        console.log(`Image from data: ${imageUrl ? imageUrl.substring(0, 50) + '...' : 'none'}`);
+                        console.log(`Full item JSON:`, JSON.stringify(item));
                     }
                     
                     tableHTML += `
@@ -319,14 +316,13 @@ async function loadAllItems() {
                             <td>${item.name || 'N/A'}</td>
                             <td>${item.category || 'N/A'}</td>
                             <td>${unit}</td>
-                            <td>$${parseFloat(price).toFixed(2)}</td>
                             <td>
                                 <button onclick=\"updateQuantity(${item.id}, ${quantity - 1})\" style=\"padding: 2px 8px; margin: 0 2px;\">-</button>
                                 <span style=\"margin: 0 10px; font-weight: bold;\">${quantity}</span>
                                 <button onclick=\"updateQuantity(${item.id}, ${quantity + 1})\" style=\"padding: 2px 8px; margin: 0 2px;\">+</button>
                             </td>
                             <td>
-                                <button onclick='editItem(${item.id}, \"${item.name.replace(/"/g, '&quot;')}\", \"${item.category}\", \"${unit}\", ${price}, ${quantity}, \"${imageUrl.replace(/"/g, '&quot;')}\")' style=\"background-color: #2196F3; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;\">Edit</button>
+                                <button onclick='editItem(${item.id}, \"${item.name.replace(/"/g, '&quot;')}\", \"${item.category}\", \"${unit}\", ${quantity}, \"${imageUrl.replace(/"/g, '&quot;')}\")' style=\"background-color: #2196F3; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;\">Edit</button>
                                 <button onclick=\"handleDeleteItem(${item.id})\" style=\"background-color: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer;\">Delete</button>
                             </td>
                         </tr>
@@ -334,7 +330,7 @@ async function loadAllItems() {
                 });
             } else {
                 tableHTML += `
-                    <tr><td colspan=\"7\" style=\"text-align: center; padding: 20px;\">No items in your store yet. Add your first item using the button above!</td></tr>
+                    <tr><td colspan=\"6\" style=\"text-align: center; padding: 20px;\">No items in your store yet. Add your first item using the button above!</td></tr>
                 `;
             }
             
@@ -348,7 +344,7 @@ async function loadAllItems() {
         if (table) {
             table.innerHTML = `
                 <caption><strong>Store Items</strong></caption>
-                <tr><td colspan=\"7\" style=\"color: red;\">Error loading items: ${error.message}</td></tr>
+                <tr><td colspan=\"6\" style=\"color: red;\">Error loading items: ${error.message}</td></tr>
             `;
         }
     }
