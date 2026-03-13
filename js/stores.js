@@ -1,7 +1,7 @@
 // Store Service
 class StoreService {
     
-    // Get all stores
+    /*/ Get all stores
     static async getAllStores() {
         try {
             return await ApiService.get(API_CONFIG.ENDPOINTS.STORES);
@@ -9,7 +9,7 @@ class StoreService {
             console.error('Failed to fetch stores:', error);
             return [];
         }
-    }
+    }*/
     
     // Get store items
     static async getStoreItems(storeId) {
@@ -35,7 +35,7 @@ class StoreService {
     }
 }
 
-// Load and display stores
+/*/ Load and display stores
 async function loadStores() {
     try {
         const stores = await StoreService.getAllStores();
@@ -59,47 +59,80 @@ async function loadStores() {
     } catch (error) {
         console.error('Failed to load stores:', error);
     }
-}
+}*/
 
 // Load and display store items in popup
 async function loadStoreItems(storeId) {
-    if (!AuthService.isAuthenticated()) {
-        alert('Please login to view store items');
+    if (!AuthService.requireAuth()) {
         return;
     }
     
     try {
-        const items = await StoreService.getStoreItems(storeId);
-        const popup = document.querySelector(`#store-${storeId}`);
+        const items = await GroceryService.getStoreItems(storeId);
+        const table = document.querySelector('[id="${storeId}"] table');
         
-        if (popup && items.length > 0) {
-            const itemsHTML = `
-                <div class="store-items-grid">
-                    ${items.map(item => `
-                        <div class="store-item">
-                            <img src="${item.imageUrl || 'apple.jpg'}" alt="${item.name}">
-                            <h3>${item.name}</h3>
-                            <p class="price">$${item.price.toFixed(2)}</p>
-                            <p>${item.description || ''}</p>
-                            <button onclick="addItemToPantry(${item.id}, '${item.name}')">
-                                Add to Pantry
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+        if (table && items.length > 0) {
+            // Group items by category
+            const categories = {};
+            items.forEach(item => {
+                const category = item.category || 'Other';
+                if (!items[category]) {
+                    items[category] = [];
+                }
+                items[category].push(item);
+            });
             
-            // Insert items after the title
-            const content = popup.querySelector('.popup-content');
-            const existingGrid = content.querySelector('.store-items-grid');
-            if (existingGrid) {
-                existingGrid.remove();
+            // Build table HTML
+            const itemNames = Object.keys(items.name);
+            let tableHTML = '<caption><strong>All Items</strong></caption>';
+            const itemCount = items.rows.length;
+
+            // Header row
+            tableHTML += `
+                <tr>
+                    <th>ID</th>
+                    <th>Store ID</th>
+                    <th>Item Name</th>   
+                    <th>Category</th>
+                    <th>Quantity</th>
+                    <th>Stock</th>
+                </tr>
+            `;
+
+            // Data rows
+            for (let i = 0; i < itemCount; i++) {
+                tableHTML += '<tr>';
+                itemNames.forEach(cat => {
+                    const item = items[cat][i];
+                    if (item) {
+                        tableHTML += `
+                            <td>${item.id}</td>
+                            <td>${item.store_id}</td>
+                            <td>${item.name}</td>
+                            <td>${item.category}</td>
+                            <td>${item.quantity}</td>
+                            <td>${item.stock}
+                        `;
+                        if (item.stock > 0) {
+                            tableHTML += '<button onclick="StoreService.addItemToPantry(${item.id}, ${item.name})" style="margin-left: 5px;" onclick="GroceryService.decrementStock(${item.storeId}, ${item.name})">Add One to Pantry</button></td>';
+                        } else {
+                            tableHTML += '<button>No Stock Remaining</button>';
+                        }
+                    } else {
+                        tableHTML += '<td></td><td></td><td></td><td></td><td></td><td></td>';
+                    }
+                });
+                tableHTML += '</tr>';
             }
-            content.insertAdjacentHTML('beforeend', itemsHTML);
+            table.innerHTML = tableHTML;
+        } else if (table) {
+            table.innerHTML = `
+                <caption><strong>All Items</strong></caption>
+                <tr><td colspan="7">No items found in this store.</td></tr>
+            `;
         }
     } catch (error) {
-        console.error('Failed to load store items:', error);
-        alert('Failed to load store items');
+        console.error('Failed to load all items:', error);
     }
 }
 
@@ -116,6 +149,13 @@ async function addItemToPantry(itemId, itemName) {
 // Initialize stores page
 document.addEventListener('DOMContentLoaded', () => {
     if (window.location.pathname.includes('stores.html')) {
-        loadStores();
+        // Select all .popup elements
+        const popups = document.querySelectorAll('.popup');
+        popups.forEach(popup => {
+            popup.addEventListener('click', function() {
+                // "this" refers to the specific popup that was clicked
+                loadStoreItems(this.id);
+            });
+        });
     }
 });
