@@ -22,20 +22,45 @@
         <p>Where you can add food items to your pantry so you CanCook some delicious recipes.</p>
 
         <!-- Store Links -->
-        <div id="storesContainer" style="margin: 20px 0;">
-            <p>Loading stores...</p>
+        <div class="store-container">
+            <div class="card">
+                <div class="store-popup"><a href="#1"></a></div>
+                <img src="apple.jpg" alt="Description">
+            </div>
+            <div class="store-description">
+                <h2>Walmart</h2>
+                <p>This is a description with some store information (address, phone, etc).</p>
+            </div>
+        </div>
+        <div class="store-container">
+            <div class="card">
+                <div class="store-popup"><a href="#2"></a></div>
+                <img src="apple.jpg" alt="Description">
+            </div>
+            <div class="store-description">
+                <h2>Meijer</h2>
+                <p>This is a description with some store information (address, phone, etc).</p>
+            </div>
         </div>
 
-        <!-- Store Item Popup -->
-        <div id="storeItemsPopup" class="popup" style="display: none;">
-            <div class="popup-content" style="max-width: 900px; max-height: 80vh; overflow-y: auto;">
-                <a href="#" onclick="closeStorePopup()">X</a>
-                <h1 id="storePopupTitle">Store Name</h1>
-                <p id="storePopupInfo" style="color: #666; margin-bottom: 20px;">Store address and phone</p>
-                <div id="storeItemsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; padding: 20px;">
-                </div>
+        <!-- Store Popups -->
+        <div id="1" class="popup">
+            <div class="popup-content">
+                <a href="#">X</a>
+                <h1>Walmart</h1>
+                <p>This is the grocery page for Walmart.</p>
+                <table></table>
             </div>
-            <a href="#" class="popup-return" onclick="closeStorePopup()"></a>
+            <a href="#" class="popup-return"></a>
+        </div>
+        <div id="2" class="popup">
+            <div class="popup-content">
+                <a href="#">X</a>
+                <h1>Meijer</h1>
+                <p>This is the grocery page for Meijer.</p>
+                <table></table>
+            </div>
+            <a href="#" class="popup-return"></a>
         </div>
     </div>
 

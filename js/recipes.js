@@ -228,86 +228,30 @@ async function showRecipeDetail(recipeId) {
         }
         
         // Update popup content
-        document.getElementById('recipeImage').src = recipe.image_url || recipe.imageUrl || 'apple.jpg';
-        document.getElementById('recipeName').textContent = recipe.name;
-        document.getElementById('recipeCreator').textContent = recipe.username || recipe.created_by || 'Unknown';
-        document.getElementById('recipeCookTime').textContent = recipe.cook_time || recipe.cookTime || 'N/A';
-        document.getElementById('recipeVisibility').textContent = (recipe.is_public || recipe.isPublic) ? 'Public' : 'Private';
-        
-        // Update rating
-        const avgRating = parseFloat(recipe.average_rating || recipe.averageRating || 0);
-        const ratingCount = parseInt(recipe.rating_count || recipe.ratingCount || 0);
-        document.getElementById('rating').textContent = avgRating.toFixed(1);
-        document.getElementById('ratingCount').textContent = `(${ratingCount} rating${ratingCount !== 1 ? 's' : ''})`;
-        
-        const stars = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
-        document.getElementById('recipeStars').textContent = stars;
-        
-        // Update ingredients
-        const ingredients = recipe.ingredients || [];
-        const ingredientsList = document.getElementById('ingredientsList');
-        if (ingredients.length > 0) {
-            ingredientsList.innerHTML = ingredients.map(ing => {
-                if (typeof ing === 'string') {
-                    return `<li>${ing}</li>`;
-                } else {
-                    return `<li>${ing.quantity || ''} ${ing.unit || ''} ${ing.name || ing.ingredient_name || ''}</li>`;
-                }
-            }).join('');
-        } else {
-            ingredientsList.innerHTML = '<li>No ingredients listed</li>';
-        }
-        
-        // Update instructions
-        const instructions = recipe.instructions || [];
-        const instructionsList = document.getElementById('instructionsList');
-        if (instructions.length > 0) {
-            instructionsList.innerHTML = instructions.map((inst, index) => {
-                let text = typeof inst === 'string' ? inst : inst.step_text || inst.instruction || '';
-                
-                // Parse timer patterns [timer:15m] or [timer:2h30m]
-                const timerPattern = /\[timer:(\d+h)?(\d+m)?\]/gi;
-                text = text.replace(timerPattern, (match, hours, minutes) => {
-                    const h = hours ? parseInt(hours) : 0;
-                    const m = minutes ? parseInt(minutes) : 0;
-                    const totalMinutes = h * 60 + m;
-                    const timerLabel = hours ? `${h}${minutes ? ':' + m : 'h'}` : `${m}m`;
-                    return `<button onclick="startTimer(${totalMinutes}, 'Step ${index + 1}')" style="background-color: #FF5722; color: white; padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">⏱ ${timerLabel}</button>`;
-                });
-                
-                // Legacy timer support
-                const timer = (typeof inst === 'object' && inst.timer) ? ` <button onclick="startTimer(${inst.timer}, 'Step ${index + 1}')" style="background-color: #FF5722; color: white; padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">⏱ ${inst.timer}m</button>` : '';
-                return `<li>${text}${timer}</li>`;
-            }).join('');
-        } else {
-            instructionsList.innerHTML = '<li>No instructions listed</li>';
-        }
-        
-        // Show edit/delete buttons if user owns this recipe
-        const user = AuthService.getUser();
-        const recipeActions = document.getElementById('recipeActions');
-        if (user && recipe.user_id === user.id) {
-            recipeActions.style.display = 'block';
-            const privacyBtn = document.getElementById('privacyToggleBtn');
-            privacyBtn.textContent = (recipe.is_public || recipe.isPublic) ? 'Make Private' : 'Make Public';
-        } else {
-            recipeActions.style.display = 'none';
-        }
-        
-        // Show/hide add comment form
-        const addCommentForm = document.getElementById('addCommentForm');
-        if (user && user.role === 'user') {
-            addCommentForm.style.display = 'block';
-        } else {
-            addCommentForm.style.display = 'none';
-        }
-        
-        // Update comments
-        const comments = recipe.comments || [];
-        const commentsList = document.getElementById('commentsList');
-        if (comments.length > 0) {
-            // Sort comments by most recent first
-            comments.sort((a, b) => new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt));
+        const popup = document.getElementById('popup');
+        if (popup) {
+            const recipePage = popup.querySelector('.recipe-page');
+            
+            recipePage.querySelector('.recipe-image img').src = recipe.imageUrl || 'apple.jpg';
+            recipePage.querySelector('h1').textContent = recipe.name;
+            recipePage.querySelector('.meta-info .value').textContent = recipe.cookTime;
+            recipePage.querySelector('h3').textContent = recipe.averageRating || '0.0';
+            
+            // Update stars
+            const stars = '★'.repeat(Math.round(recipe.averageRating || 0)) + '☆'.repeat(5 - Math.round(recipe.averageRating || 0));
+            recipePage.querySelector('h4').textContent = stars;
+            
+            // Update ingredients
+            const ingredientsList = recipePage.querySelector('.ingredients ul');
+            ingredientsList.innerHTML = recipe.ingredients.map(ing => 
+                `<li>${ing.name} - ${ing.quantity} ${ing.unit}</li>`
+            ).join('');
+            
+            // Update instructions
+            const instructionsList = recipePage.querySelector('.instructions ol');
+            instructionsList.innerHTML = recipe.instructions.map(inst => 
+                `<li>${inst}</li>`
+            ).join('');
             
             commentsList.innerHTML = comments.map(comment => `
                 <div class="comment">

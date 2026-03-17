@@ -1,7 +1,7 @@
 // Store Service
 class StoreService {
     
-    // Get all stores
+    /*/ Get all stores
     static async getAllStores() {
         try {
             return await ApiService.get(API_CONFIG.ENDPOINTS.STORES);
@@ -9,7 +9,7 @@ class StoreService {
             console.error('Failed to fetch stores:', error);
             return [];
         }
-    }
+    }*/
     
     // Get store items
     static async getStoreItems(storeId) {
@@ -32,9 +32,7 @@ class StoreService {
     }
 }
 
-let currentStore = null;
-
-// Load and display stores
+/*/ Load and display stores
 async function loadStores() {
     try {
         const response = await StoreService.getAllStores();
@@ -77,76 +75,84 @@ async function loadStores() {
             container.innerHTML = '<p style="padding: 20px; color: red;">Error loading stores. Please try again later.</p>';
         }
     }
-}
+}*/
 
-// Open store popup and load items
-async function openStorePopup(storeId) {
-    if (!AuthService.isAuthenticated()) {
-        alert('Please login to view store items and add to your pantry');
-        return;
-    }
-    
-    const user = AuthService.getUser();
-    if (!user || user.role !== 'user') {
-        alert('Only regular users can shop for pantry items');
+// Load and display store items in popup
+async function loadStoreItems(storeId) {
+    if (!AuthService.requireAuth()) {
         return;
     }
     
     try {
-        // Get store details
-        const storesResponse = await StoreService.getAllStores();
-        const stores = storesResponse.rows || storesResponse.data || storesResponse || [];
-        const store = stores.find(s => s.id == storeId);
+        const items = await GroceryService.getStoreItems(storeId);
+        const table = document.querySelector('[id="${storeId}"] table');
         
-        if (store) {
-            currentStore = store;
-            document.getElementById('storePopupTitle').textContent = store.name;
-            document.getElementById('storePopupInfo').textContent = `${store.address || 'N/A'} | ${store.phone || 'N/A'}`;
-        }
-        
-        // Get store items
-        const itemsResponse = await StoreService.getStoreItems(storeId);
-        const items = itemsResponse.rows || itemsResponse.data || itemsResponse || [];
-        
-        const itemsGrid = document.getElementById('storeItemsGrid');
-        
-        if (items.length > 0) {
-            itemsGrid.innerHTML = items.map(item => {
-                const imageUrl = item.image_url || item.imageUrl || 'apple.jpg';
-                const price = parseFloat(item.price || 0);
-                const stock = item.quantity || item.stock || 0;
-                const unit = item.unit || 'units';
-                const itemName = (item.name || '').replace(/'/g, "\\'");
-                
-                return `
-                    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center; background: white;">
-                        <img src="${imageUrl}" alt="${item.name}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 10px;">
-                        <h3 style="margin: 10px 0 5px; font-size: 16px;">${item.name}</h3>
-                        <p style="color: #4CAF50; font-size: 18px; font-weight: bold; margin: 5px 0;">$${price.toFixed(2)}</p>
-                        <p style="color: #666; font-size: 12px; margin: 5px 0;">${item.category || 'Uncategorized'}</p>
-                        <p style="color: #999; font-size: 12px; margin: 5px 0;">Stock: ${stock} ${unit}</p>
-                        <div style="margin-top: 10px; display: flex; gap: 5px; align-items: center; justify-content: center;">
-                            <label style="font-size: 12px;">Qty:</label>
-                            <input type="number" id="qty-${item.id}" value="1" min="1" max="${stock}" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
-                        </div>
-                        <button onclick="addItemToPantry(${item.id}, '${itemName}', '${unit}', ${stock})" 
-                                style="width: 100%; margin-top: 10px; background-color: #4CAF50; color: white; padding: 8px; border: none; border-radius: 4px; cursor: pointer;"
-                                ${stock <= 0 ? 'disabled' : ''}>
-                            ${stock > 0 ? 'Add to Pantry' : 'Out of Stock'}
-                        </button>
-                    </div>
-                `;
-            }).join('');
-        } else {
-            itemsGrid.innerHTML = '<p style="padding: 20px; text-align: center; grid-column: 1/-1;">No items available at this store yet.</p>';
+        if (table && items.length > 0) {
+            // Group items by category
+            const categories = {};
+            items.forEach(item => {
+                const category = item.category || 'Other';
+                if (!items[category]) {
+                    items[category] = [];
+                }
+                items[category].push(item);
+            });
+            
+            // Build table HTML
+            const itemNames = Object.keys(items.name);
+            let tableHTML = '<caption><strong>All Items</strong></caption>';
+            const itemCount = items.rows.length;
+
+            // Header row
+            tableHTML += `
+                <tr>
+                    <th>ID</th>
+                    <th>Store ID</th>
+                    <th>Item Name</th>   
+                    <th>Category</th>
+                    <th>Quantity</th>
+                    <th>Stock</th>
+                </tr>
+            `;
+
+            // Data rows
+            for (let i = 0; i < itemCount; i++) {
+                tableHTML += '<tr>';
+                itemNames.forEach(cat => {
+                    const item = items[cat][i];
+                    if (item) {
+                        tableHTML += `
+                            <td>${item.id}</td>
+                            <td>${item.store_id}</td>
+                            <td>${item.name}</td>
+                            <td>${item.category}</td>
+                            <td>${item.quantity}</td>
+                            <td>${item.stock}
+                        `;
+                        if (item.stock > 0) {
+                            tableHTML += '<button onclick="StoreService.addItemToPantry(${item.id}, ${item.name})" style="margin-left: 5px;" onclick="GroceryService.decrementStock(${item.storeId}, ${item.name})">Add One to Pantry</button></td>';
+                        } else {
+                            tableHTML += '<button>No Stock Remaining</button>';
+                        }
+                    } else {
+                        tableHTML += '<td></td><td></td><td></td><td></td><td></td><td></td>';
+                    }
+                });
+                tableHTML += '</tr>';
+            }
+            table.innerHTML = tableHTML;
+        } else if (table) {
+            table.innerHTML = `
+                <caption><strong>All Items</strong></caption>
+                <tr><td colspan="7">No items found in this store.</td></tr>
+            `;
         }
         
         // Show popup
         document.getElementById('storeItemsPopup').style.display = 'flex';
         
     } catch (error) {
-        console.error('Failed to load store items:', error);
-        alert('Failed to load store items');
+        console.error('Failed to load all items:', error);
     }
 }
 
@@ -190,10 +196,13 @@ async function addItemToPantry(itemId, itemName, unit, stock) {
 // Initialize stores page
 document.addEventListener('DOMContentLoaded', () => {
     if (window.location.pathname.includes('stores.html')) {
-        // Stores page is for regular users only
-        if (!AuthService.requireRole(['user'])) {
-            return;
-        }
-        loadStores();
+        // Select all .popup elements
+        const popups = document.querySelectorAll('.popup');
+        popups.forEach(popup => {
+            popup.addEventListener('click', function() {
+                // "this" refers to the specific popup that was clicked
+                loadStoreItems(this.id);
+            });
+        });
     }
 });

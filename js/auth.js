@@ -256,16 +256,9 @@ async function handleSignup(event) {
 
 // Update navbar based on auth status
 function updateNavbar() {
-    const user = AuthService.getUser();
     const navbar = document.querySelector('.navbar');
-    
-    console.log('updateNavbar - User:', user);
-    console.log('updateNavbar - User role:', user ? user.role : 'no user');
-    
-    if (!navbar) return;
-    
-    // If no user is logged in, show the logged out navbar
-    if (!user) {
+    if (navbar) {
+        // The user is initially logged out, show the logged out navbar
         navbar.innerHTML = `
             <div class="logo">Can Cook</div>
             <div>
@@ -282,17 +275,8 @@ function updateNavbar() {
         return;
     }
 
-    // User is logged in - update navbar based on role
-    if (user) {
-        /*// Find the login link and replace with user info and logout
-        const loginLink = navbar.querySelector('a[href="login.html"]');
-        if (loginLink) {
-            loginLink.outerHTML = `
-                <span style="color: white; margin-right: 10px;">Welcome, ${user.username}!</span>
-                <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
-            `;
-        }*/
-        
+    const user = AuthService.getUser();
+    if (user && navbar) {
         // Further adjust the navbar based on user role
         if (user.role == 'user') {
             // The user is a regular user, show index.html, pantry.html, stores.html, and logout

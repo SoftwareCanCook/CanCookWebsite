@@ -53,78 +53,59 @@
             <div class="popup-content">
                 <a href="#" onclick="closeRecipePopup()">X</a>  
                     <div class = "recipe-page">
-                    <div class = "recipe-image">
-                        <!--Retrieve recipe image-->
-                        <img src="apple.jpg" alt="Recipe Image" id="recipeImage">
-                    </div>
-                    <h1 id="recipeName">Recipe Name</h1>
-                    
-                    <!-- Recipe Actions (Edit/Delete buttons) -->
-                    <div id="recipeActions" style="display: none; margin: 10px 0;">
-                        <button onclick="editRecipe()" style="background-color: #2196F3; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;">Edit Recipe</button>
-                        <button onclick="deleteRecipe()" style="background-color: #f44336; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">Delete Recipe</button>
-                        <button onclick="toggleRecipePrivacy()" id="privacyToggleBtn" style="background-color: #FF9800; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-left: 5px;">Make Private</button>
-                    </div>
-                    
-                    <div class="meta-info">
-                        <span class="label">Created by:</span>
-                        <span class="value" id="recipeCreator">Unknown</span>
-                        <br>
-                        <span class="label">Cook Time:</span>
-                        <span class="value" id="recipeCookTime">N/A</span>
-                        <br>
-                        <span class="label">Visibility:</span>
-                        <span class="value" id="recipeVisibility">Public</span>
-                    </div>
-                    <div class = "rating-display">
-                        <span class="stars" id="recipeStars">☆☆☆☆☆</span>
-                        <span id="rating" class="rating-value">0.0</span>
-                        <span id="ratingCount" style="color: #666; font-size: 14px;">(0 ratings)</span>
-                    </div>
-                
-                    <!--Ingredients and instructions-->
-                    <div class="recipe-content">
-                        <section class="ingredients">
-                            <h2>Ingredients</h2>
-                            <ul style="list-style-type: disc" id="ingredientsList">
-                                <li>Loading...</li>
-                            </ul>
-                        </section>
-                        <section class="instructions">
-                            <h2>Instructions</h2>
-                            <ol id="instructionsList">
-                                <li>Loading...</li>
-                            </ol>
-                        </section>
-                    </div>
-                    
-                    <!--Comments section-->
-                    <div class="comments-section">
-                        <h2>Reviews & Comments</h2>
+
                         
-                        <!-- Add Comment Form -->
-                        <div id="addCommentForm" style="display: none; background-color: #f9f9f9; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
-                            <h3>Leave a Review</h3>
-                            <form onsubmit="submitComment(event)">
-                                <label>Rating:</label><br>
-                                <select id="commentRating" required style="padding: 5px; margin: 5px 0; width: 100px;">
-                                    <option value="5">5 ★★★★★</option>
-                                    <option value="4">4 ★★★★☆</option>
-                                    <option value="3">3 ★★★☆☆</option>
-                                    <option value="2">2 ★★☆☆☆</option>
-                                    <option value="1">1 ★☆☆☆☆</option>
-                                </select><br>
-                                <label>Comment:</label><br>
-                                <textarea id="commentText" rows="4" required style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"></textarea><br>
-                                <button type="submit" style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;">Submit Review</button>
-                            </form>
+
+                        <div class = "recipe-image">
+                            <!--Retrieve recipe image-->
+                            <img src="apple.jpg" alt="Recipe Image">
                         </div>
-                        
-                        <!-- Comments List -->
-                        <div class="comments-list" id="commentsList">
-                            <p>No comments yet.</p>
+                        <h1 id="name">Loading recipe name...</h1>
+                        <div class="meta-info">
+                            <span class="label">Cook Time:</span>
+                           
+                            <span id="cookTime" class="value">Loading...</span>
                         </div>
-                    </div>
+
+                        <div class = "rating-display">
+                            <!-- We don't have to get an average rating if we don't have time to implement-->
+                            <h4 id="stars" class="stars">☆☆☆☆☆</span>
+                            <h3 id="averageRating" class="rating-value">loading...</span>
+                        </div>
+                    
+                        <!--Ingredients and instructions-->
+                        <div class="recipe-content">
+                            <section class="ingredients">
+                                <h2>Ingredients</h2>
+                                <ul id="ingredientsList" style="list-style-type: disc"></ul>
+                            </section>
+
+                            <section class="instructions">
+                                <h2>Instructions</h2>
+                                <ol id="instructionsList">loading instructions...</ol>
+                            </section>
+
+                        </div>
+
+                        <!--Comments section-->
+                        <div class="comments-section">
+                            <h2>Reviews & Comments</h2>
+                            <!--Retrieve comments and ratings-->
+                            <div class="comment">
+                                <div class="comment-header">
+                                    <strong>Joe Johnson</strong>
+                                    <span class="stars">★★★★☆</span>
+                                </div>
+                                <p>This apple recipe was a bit time-consuming but the result was delicious!</p>
+                            </div>
+                            <div class="comment">
+                                <div class="comment-header">
+                                    <strong>Bob</strong>
+                                    <span class="stars">★☆☆☆☆</span>
+                                </div>
+                                <p>I hate apples!</p>
+                            </div>
+                        </div>
                 </div>
             </div>
             <a href="#" class="popup-return" onclick="closeRecipePopup()"></a>
