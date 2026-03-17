@@ -21,7 +21,38 @@
         <p>Here you can adjust user accounts by changing their lock status.</p>
 
         <!-- Display all users here -->
-        <table>
+        <h2>👥 Active User Management</h2>
+        <table id="users-table">
+        </table>
+        
+        <hr style="margin: 40px 0;">
+        
+        <!-- Store Management Section -->
+        <h2>🏪 Store Management</h2>
+        <p>Manage grocery stores in the system. Grocery admins can be assigned to these stores.</p>
+        
+        <div style="background-color: #f0f8ff; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+            <h3>Add New Store</h3>
+            <form id="addStoreForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 600px;">
+                <div>
+                    <label>Store Name:</label>
+                    <input type="text" id="storeName" placeholder="e.g., Kroger Downtown" required style="width: 100%; padding: 5px;">
+                </div>
+                <div>
+                    <label>Phone:</label>
+                    <input type="tel" id="storePhone" placeholder="(555) 123-4567" style="width: 100%; padding: 5px;">
+                </div>
+                <div style="grid-column: 1 / -1;">
+                    <label>Address:</label>
+                    <input type="text" id="storeAddress" placeholder="123 Main St, City, State ZIP" style="width: 100%; padding: 5px;">
+                </div>
+                <div style="grid-column: 1 / -1;">
+                    <button type="button" onclick="handleAddStore()" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Add Store</button>
+                </div>
+            </form>
+        </div>
+        
+        <table id="stores-table">
         </table>
     </div>
 

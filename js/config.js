@@ -17,6 +17,10 @@ const API_CONFIG = {
         RECIPE_BY_ID: '/recipes/',
         USER_RECIPES: '/recipes/user',
         SEARCH_RECIPES: '/recipes/search',
+        CREATE_RECIPE: '/recipes',
+        UPDATE_RECIPE: '/recipes/',
+        DELETE_RECIPE: '/recipes/',
+        SORT_RECIPES: '/recipes/sort',
         
         // Pantry endpoints
         PANTRY: '/pantry',
@@ -31,6 +35,9 @@ const API_CONFIG = {
         // Comment/Review endpoints
         COMMENTS: '/comments',
         ADD_COMMENT: '/comments',
+        
+        // User/Admin endpoints
+        USER: '/users',
     },
     
     // Request timeout in milliseconds

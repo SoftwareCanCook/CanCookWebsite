@@ -20,76 +20,38 @@
         <h1>Welcome to Can Cook!</h1>
         <p>Your go-to resource for discovering and sharing recipes with others.</p>
 
+        <!-- Search and Sort Controls -->
+        <div style="display: flex; gap: 10px; margin: 20px 0; align-items: center; flex-wrap: wrap;">
+            <form id="searchForm" style="display: flex; gap: 10px; flex: 1;">
+                <input type="text" id="site-search" placeholder="Search recipes by name or ingredient..." 
+                       style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <button type="submit" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Search</button>
+                <button type="button" onclick="clearSearch()" style="padding: 8px 16px; background-color: #999; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
+            </form>
+            <select id="sortBy" onchange="handleSort()" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="">Sort by...</option>
+                <option value="name">Name (A-Z)</option>
+                <option value="rating">Rating (High to Low)</option>
+                <option value="date">Date (Newest First)</option>
+            </select>
+            <button onclick="showCreateRecipeForm()" id="createRecipeBtn" style="padding: 8px 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; display: none;">+ Create Recipe</button>
+        </div>
+
         <!-- All Recipes Slider -->
         <h1>All Recipes</h1>
-        <div class="horizontal-scroller">
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
+        <div class="horizontal-scroller" id="allRecipesContainer">
+            <p style="padding: 20px;">Loading recipes...</p>
         </div>
 
         <!-- Your Recipes Slider -->
-        <h1>Your Recipes</h1>
-        <div class="horizontal-scroller">
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
-            <div class="card">
-                <img src="apple.jpg" alt="Description">
-                <div class="overlay-text"><a href="#popup">Apple</a></div>
-            </div>
+        <h1 id="yourRecipesHeader" style="display: none;">Your Recipes</h1>
+        <div class="horizontal-scroller" id="userRecipesContainer">
         </div>
 
         <!-- Full Recipe Popup-->
         <div id="popup" class="popup">
             <div class="popup-content">
-                <a href="#">X</a>  
+                <a href="#" onclick="closeRecipePopup()">X</a>  
                     <div class = "recipe-page">
 
                         
@@ -146,7 +108,49 @@
                         </div>
                 </div>
             </div>
-            <a href="#" class="popup-return"></a>
+            <a href="#" class="popup-return" onclick="closeRecipePopup()"></a>
+        </div>
+        
+        <!-- Create/Edit Recipe Popup -->
+        <div id="recipeFormPopup" class="popup" style="display: none;">
+            <div class="popup-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+                <a href="#" onclick="closeRecipeForm()">X</a>
+                <h2 id="recipeFormTitle">Create New Recipe</h2>
+                <form id="recipeForm" onsubmit="submitRecipe(event)" style="padding: 20px;">
+                    <input type="hidden" id="recipeFormId" value="">
+                    
+                    <label>Recipe Name: *</label><br>
+                    <input type="text" id="recipeFormName" required style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br><br>
+                    
+                    <label>Image URL:</label><br>
+                    <input type="url" id="recipeFormImage" placeholder="https://example.com/image.jpg" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br>
+                    <label style="margin-top: 10px; display: block;">Or Upload Image:</label><br>
+                    <input type="file" id="recipeImageFile" accept="image/*" onchange="handleRecipeImageUpload(event)" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                    <small style="color: #666;">Supported formats: JPG, PNG, GIF (max 5MB)</small><br><br>
+                    
+                    <label>Cook Time: *</label><br>
+                    <input type="text" id="recipeFormCookTime" required placeholder="e.g., 30 minutes" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br><br>
+                    
+                    <label>Visibility: *</label><br>
+                    <select id="recipeFormVisibility" style="padding: 8px; margin: 5px 0; width: 150px;">
+                        <option value="public">Public</option>
+                        <option value="private">Private</option>
+                    </select><br><br>
+                    
+                    <label>Ingredients: * (one per line with quantity)</label><br>
+                    <textarea id="recipeFormIngredients" rows="6" required placeholder="e.g.&#10;2 cups flour&#10;1 tsp salt&#10;3 eggs" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"></textarea><br><br>
+                    
+                    <label>Instructions: * (one step per line)</label><br>
+                    <small style="color: #666;">Add timers with [timer:15m] or [timer:2h30m] format</small><br>
+                    <textarea id="recipeFormInstructions" rows="8" required placeholder="e.g.&#10;Preheat oven to 350°F&#10;Mix dry ingredients and bake [timer:20m]&#10;Add wet ingredients" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"></textarea><br><br>
+                    
+                    <div id="pantryCheckResult" style="margin: 10px 0; padding: 10px; border-radius: 4px; display: none;"></div>
+                    
+                    <button type="button" onclick="checkPantryIngredients()" style="background-color: #FF9800; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">Check Pantry</button>
+                    <button type="submit" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Save Recipe</button>
+                    <button type="button" onclick="closeRecipeForm()" style="background-color: #999; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Cancel</button>
+                </form>
+            </div>
         </div>
     </div>
     

@@ -22,11 +22,24 @@
                 <label for="email">Email</label>
                 <input type="email" id="email" aria-label="Enter your email" required>
                 <br><br>
-                <label for="userUsername">Username</label>
-                <input type="text" id="userUsername" aria-label="Enter a username" required>
+                
+                <label for="userUsername">Username <small>(exactly 8 lowercase characters)</small></label>
+                <input type="text" id="userUsername" aria-label="Enter a username" 
+                       pattern="[a-z]{8}" 
+                       maxlength="8" 
+                       minlength="8"
+                       title="Username must be exactly 8 lowercase letters"
+                       required>
+                <span id="usernameError" style="color: red; font-size: 12px; display: none;"></span>
                 <br><br>
-                <label for="userPassword">Password</label>
-                <input type="password" id="userPassword" aria-label="Enter a password" required>
+                
+                <label for="userPassword">Password <small>(12 chars: 1 uppercase, 1 lowercase, 1 number, 1 symbol)</small></label>
+                <input type="password" id="userPassword" aria-label="Enter a password" 
+                       minlength="12" 
+                       maxlength="12"
+                       title="Password must be exactly 12 characters with at least 1 uppercase, 1 lowercase, 1 number, and 1 symbol"
+                       required>
+                <span id="passwordError" style="color: red; font-size: 12px; display: none;"></span>
                 <br><br>
                 <button type="submit">Sign Up</button>
             </form>

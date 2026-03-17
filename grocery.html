@@ -19,10 +19,60 @@
         <!-- Welcome Paragraph -->
         <h1>Welcome to the Can Cook grocery store panel!</h1>
         <p>Here you can manage grocery store items by adding, editing, removing, and changing their stock amount.</p>
+        <p style="color: #666; font-size: 14px;"><strong>Required:</strong> Add at least 3 items per category (Produce, Meats & Seafood, Dairy, Bakery, Pantry Staples)</p>
+
+        <!-- Add/Edit Item Form -->
+        <div id="itemFormSection" style="background-color: #f0f8ff; padding: 20px; margin-bottom: 20px; border-radius: 5px; display: none;">
+            <h3 id="itemFormTitle">Add New Item</h3>
+            <form id="itemForm" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 800px;">
+                <input type="hidden" id="editItemId" value="">
+                
+                <div style="grid-column: 1 / -1;">
+                    <label><strong>Item Name: *</strong></label>
+                    <input type="text" id="itemName" required placeholder="e.g., Red Apples" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                
+                <div>
+                    <label><strong>Category: *</strong></label>
+                    <select id="itemCategory" required onchange="updateUnitOptions()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="">Select Category</option>
+                        <option value="Produce">Produce (Fruits & Vegetables)</option>
+                        <option value="Meats & Seafood">Meats & Seafood</option>
+                        <option value="Dairy">Dairy</option>
+                        <option value="Bakery">Bakery</option>
+                        <option value="Pantry Staples">Pantry Staples</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label><strong>Unit: *</strong></label>
+                    <select id="itemUnit" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="">Select Unit</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label><strong>Stock Quantity: *</strong></label>
+                    <input type="number" id="itemQuantity" required min="0" placeholder="0" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                
+                <div style="grid-column: 1 / -1;">
+                    <label><strong>Image URL:</strong></label>
+                    <input type="url" id="itemImageUrl" placeholder="https://i.imgur.com/example.jpg" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    <small style="color: #666;">Enter a direct image URL (must start with http:// or https://) or leave blank for default</small>
+                </div>
+                
+                <div style="grid-column: 1 / -1; display: flex; gap: 10px;">
+                    <button type="button" onclick="saveItem()" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Save Item</button>
+                    <button type="button" onclick="cancelItemForm()" style="background-color: #999; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <button onclick="showItemForm()" style="background-color: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 20px;">+ Add New Item</button>
 
         <!-- Display all grocery store items here -->
-        <!-- The grocery store title (EX: Walmart, Meijer, Kroger) appear as the title for the table -->
-        <table>
+        <table id="itemsTable">
         </table>
     </div>
     

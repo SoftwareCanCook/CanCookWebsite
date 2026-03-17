@@ -86,13 +86,18 @@ class ApiService {
             const error = await response.json().catch(() => ({
                 message: 'An error occurred'
             }));
-            throw new Error(error.message || `HTTP error! status: ${response.status}`);
+            console.error('API Error Response:', error);
+            console.error('Status:', response.status);
+            console.error('URL:', response.url);
+            throw new Error(error.message || error.error || `HTTP error! status: ${response.status}`);
         }
         
         // Check if response has content
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
-            return await response.json();
+            const jsonResponse = await response.json();
+            console.log('API Response:', jsonResponse);
+            return jsonResponse;
         }
         
         return response;

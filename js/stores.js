@@ -22,12 +22,9 @@ class StoreService {
     }
     
     // Add store item to pantry
-    static async addToPantry(itemId, quantity = 1) {
+    static async addToPantry(itemData) {
         try {
-            return await PantryService.addItem({
-                storeItemId: itemId,
-                quantity
-            });
+            return await PantryService.addItem(itemData);
         } catch (error) {
             console.error('Failed to add item to pantry:', error);
             throw error;
@@ -38,26 +35,45 @@ class StoreService {
 /*/ Load and display stores
 async function loadStores() {
     try {
-        const stores = await StoreService.getAllStores();
-        const content = document.querySelector('.content');
+        const response = await StoreService.getAllStores();
+        const stores = response.rows || response.data || response || [];
+        const container = document.getElementById('storesContainer');
+        
+        if (!container) return;
         
         if (stores.length > 0) {
-            // Find the store containers section
-            const storeContainers = content.querySelectorAll('.store-container');
+            let storesHTML = '';
             
-            stores.forEach((store, index) => {
-                if (storeContainers[index]) {
-                    const container = storeContainers[index];
-                    container.querySelector('h2').textContent = store.name;
-                    container.querySelector('p').textContent = `${store.address} | Phone: ${store.phone}`;
-                    container.querySelector('img').src = store.logoUrl || 'apple.jpg';
-                    container.querySelector('a').href = `#store-${store.id}`;
-                    container.querySelector('a').onclick = () => loadStoreItems(store.id);
-                }
+            stores.forEach(store => {
+                const logoUrl = store.logo_url || store.logoUrl || 'apple.jpg';
+                const address = store.address || 'N/A';
+                const phone = store.phone || 'N/A';
+                
+                storesHTML += `
+                    <div class="store-container" style="display: flex; align-items: center; border: 2px solid #ddd; border-radius: 8px; padding: 20px; margin: 15px 0; background-color: #f9f9f9; cursor: pointer; transition: transform 0.2s;" onclick="openStorePopup(${store.id})" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        <div class="card" style="width: 150px; height: 150px; margin-right: 20px; flex-shrink: 0;">
+                            <img src="${logoUrl}" alt="${store.name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                        </div>
+                        <div class="store-description" style="flex: 1;">
+                            <h2 style="margin: 0 0 10px 0; color: #2196F3;">${store.name}</h2>
+                            <p style="margin: 5px 0; color: #666;"><strong>📍 Address:</strong> ${address}</p>
+                            <p style="margin: 5px 0; color: #666;"><strong>📞 Phone:</strong> ${phone}</p>
+                            <button style="margin-top: 10px; background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">View Items</button>
+                        </div>
+                    </div>
+                `;
             });
+            
+            container.innerHTML = storesHTML;
+        } else {
+            container.innerHTML = '<p style="padding: 20px; text-align: center; color: #999;">No stores available yet. Check back soon!</p>';
         }
     } catch (error) {
         console.error('Failed to load stores:', error);
+        const container = document.getElementById('storesContainer');
+        if (container) {
+            container.innerHTML = '<p style="padding: 20px; color: red;">Error loading stores. Please try again later.</p>';
+        }
     }
 }*/
 
@@ -131,18 +147,49 @@ async function loadStoreItems(storeId) {
                 <tr><td colspan="7">No items found in this store.</td></tr>
             `;
         }
+        
+        // Show popup
+        document.getElementById('storeItemsPopup').style.display = 'flex';
+        
     } catch (error) {
         console.error('Failed to load all items:', error);
     }
 }
 
+// Close store popup
+function closeStorePopup() {
+    document.getElementById('storeItemsPopup').style.display = 'none';
+    currentStore = null;
+    return false;
+}
+
 // Add item to pantry from store
-async function addItemToPantry(itemId, itemName) {
+async function addItemToPantry(itemId, itemName, unit, stock) {
+    const qtyInput = document.getElementById(`qty-${itemId}`);
+    const quantity = parseInt(qtyInput.value) || 1;
+    
+    if (quantity > stock) {
+        alert(`Only ${stock} ${unit} available in stock`);
+        return;
+    }
+    
+    if (quantity < 1) {
+        alert('Quantity must be at least 1');
+        return;
+    }
+    
     try {
-        await StoreService.addToPantry(itemId);
-        alert(`${itemName} added to your pantry!`);
+        const itemData = {
+            storeItemId: itemId,
+            quantity: quantity,
+            unit: unit
+        };
+        
+        await StoreService.addToPantry(itemData);
+        alert(`${quantity} ${unit} of ${itemName} added to your pantry!`);
     } catch (error) {
-        alert('Failed to add item to pantry: ' + error.message);
+        console.error('Failed to add item to pantry:', error);
+        alert('Failed to add item to pantry: ' + (error.message || 'Unknown error'));
     }
 }
 
