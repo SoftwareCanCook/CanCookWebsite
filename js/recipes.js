@@ -83,15 +83,33 @@ class RecipeService {
     
     // Add comment to recipe
     static async addComment(recipeId, rating, comment) {
+        const numericRecipeId = Number(recipeId);
+        const numericRating = Math.max(1, Math.min(5, Number(rating) || 0));
+        const commentText = String(comment || '').trim();
+
         try {
             return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_COMMENT, {
-                recipeId,
-                rating,
-                comment
+                recipe_id: numericRecipeId,
+                recipeId: numericRecipeId,
+                rating: numericRating,
+                comment_text: commentText,
+                comment: commentText,
+                text: commentText
             });
         } catch (error) {
-            console.error('Failed to add comment:', error);
-            throw error;
+            console.error('Failed to add comment (primary payload):', error);
+
+            // Retry with minimal snake_case payload for stricter backends
+            try {
+                return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_COMMENT, {
+                    recipe_id: numericRecipeId,
+                    rating: numericRating,
+                    comment_text: commentText
+                });
+            } catch (retryError) {
+                console.error('Failed to add comment (fallback payload):', retryError);
+                throw retryError;
+            }
         }
     }
 }
@@ -155,24 +173,55 @@ async function loadUserRecipes() {
         return;
     }
     
+    const container = document.getElementById('userRecipesContainer');
+    const header = document.getElementById('yourRecipesHeader');
+    if (!container) {
+        return;
+    }
+
+    const isOwnedByUser = (recipe) => {
+        const ownerId = recipe.user_id ?? recipe.userId ?? recipe.owner_id ?? recipe.ownerId;
+        const ownerName = (recipe.username || recipe.created_by || recipe.owner || '').toString().toLowerCase();
+        const currentUserId = user.id ?? user.userId;
+        const currentUsername = (user.username || user.name || '').toString().toLowerCase();
+
+        return String(ownerId) === String(currentUserId) || (!!currentUsername && ownerName === currentUsername);
+    };
+
     try {
-        const response = await RecipeService.getUserRecipes();
-        const recipes = response.rows || response.data || response || [];
-        
-        const container = document.getElementById('userRecipesContainer');
-        const header = document.getElementById('yourRecipesHeader');
-        
-        if (recipes.length > 0 && container) {
+        let response;
+        let recipes = [];
+
+        try {
+            response = await RecipeService.getUserRecipes();
+            const fromUserEndpoint = response.rows || response.data || response || [];
+            recipes = Array.isArray(fromUserEndpoint) ? fromUserEndpoint : [];
+        } catch (userEndpointError) {
+            console.warn('User recipes endpoint failed, using fallback owner filter:', userEndpointError);
+        }
+
+        // Fallback: build "Your Recipes" from all recipes and keep only current user's entries
+        if (recipes.length === 0) {
+            const allResponse = await RecipeService.getAllRecipes();
+            const allRecipes = allResponse.rows || allResponse.data || allResponse || [];
+            const allRecipesArray = Array.isArray(allRecipes) ? allRecipes : [];
+            recipes = allRecipesArray.filter(isOwnedByUser);
+        }
+
+        if (recipes.length > 0) {
             if (header) header.style.display = 'block';
             container.innerHTML = recipes.map(recipe => `
                 <div class="card" onclick="showRecipeDetail(${recipe.id})">
-                    <img src="${recipe.image_url || recipe.imageUrl || 'apple.jpg'}" alt="${recipe.name}">
+                    <img src="${recipe.image_url || recipe.imageUrl || recipe.image || 'apple.jpg'}" alt="${recipe.name}">
                     <div class="overlay-text">
                         <a href="#popup">${recipe.name}</a>
-                        <div style="font-size: 12px; margin-top: 5px;">${recipe.is_public || recipe.isPublic ? 'Public' : 'Private'}</div>
+                        <div style="font-size: 12px; margin-top: 5px;">${(recipe.is_public !== undefined ? recipe.is_public : recipe.isPublic) ? 'Public' : 'Private'}</div>
                     </div>
                 </div>
             `).join('');
+        } else {
+            if (header) header.style.display = 'none';
+            container.innerHTML = '';
         }
     } catch (error) {
         console.error('Failed to load user recipes:', error);
@@ -183,33 +232,231 @@ async function loadUserRecipes() {
 let currentRecipeId = null;
 let currentRecipeData = null;
 
-// Handle recipe image upload
-function handleRecipeImageUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-        alert('Image file is too large. Maximum size is 5MB.');
-        event.target.value = '';
+function normalizeRecipeList(value) {
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    if (value === null || value === undefined) {
+        return [];
+    }
+
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return [];
+        }
+
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+            if (parsed && typeof parsed === 'object') {
+                return Object.values(parsed);
+            }
+        } catch (e) {
+            // Not JSON; treat as newline-delimited text
+        }
+
+        return trimmed.split('\n').map(line => line.trim()).filter(Boolean);
+    }
+
+    if (typeof value === 'object') {
+        return Object.values(value).filter(item => item !== null && item !== undefined);
+    }
+
+    return [];
+}
+
+const RECIPE_INGREDIENTS_CACHE_KEY = 'cancookRecipeIngredientsCache';
+
+// Grocery items cache for ingredient name → itemId matching
+let _groceryItemsCache = null;
+
+async function fetchGroceryItems() {
+    if (_groceryItemsCache) return _groceryItemsCache;
+    const allItems = [];
+    for (const storeId of [1, 2, 3]) {
+        try {
+            const items = await ApiService.get(`${API_CONFIG.ENDPOINTS.STORE_ITEMS}${storeId}/items`);
+            const arr = Array.isArray(items) ? items : (items.data || items.rows || []);
+            allItems.push(...arr);
+        } catch (e) { /* store may not have items */ }
+    }
+    // Deduplicate by lowercase name — keep lowest id (store 1 first)
+    const seen = new Set();
+    _groceryItemsCache = allItems.filter(item => {
+        const key = (item.name || '').toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+    return _groceryItemsCache;
+}
+
+const KNOWN_UNITS = new Set([
+    'cup','cups','tsp','teaspoon','teaspoons','tbsp','tablespoon','tablespoons',
+    'lb','lbs','pound','pounds','oz','ounce','ounces','ml','l','liter','liters',
+    'g','gram','grams','kg','kilogram','kilograms','whole','each','clove','cloves',
+    'slice','slices','bunch','can','cans','bottle','bottles','jar','jars',
+    'pint','pints','quart','quarts','gallon','gallons','dozen','head','heads',
+    'carton','cartons'
+]);
+
+function parseIngredientLine(line) {
+    const parts = line.trim().split(/\s+/);
+    let idx = 0;
+    let quantity = 1;
+    let unit = 'whole';
+
+    if (idx < parts.length && /^\d+(\.\d+)?$|^\d+\/\d+$/.test(parts[idx])) {
+        const raw = parts[idx];
+        quantity = raw.includes('/') ? (parseInt(raw) / parseInt(raw.split('/')[1])) : parseFloat(raw);
+        idx++;
+    }
+    if (idx < parts.length && KNOWN_UNITS.has(parts[idx].toLowerCase())) {
+        unit = parts[idx];
+        idx++;
+    }
+    const ingredientName = parts.slice(idx).join(' ').trim();
+    return { quantity, unit, ingredientName };
+}
+
+function matchIngredientToItem(line, groceryItems) {
+    const { quantity, unit, ingredientName } = parseIngredientLine(line);
+    if (!ingredientName) return null;
+    const nameLower = ingredientName.toLowerCase();
+    const matched = groceryItems.find(item => {
+        const itemName = (item.name || '').toLowerCase();
+        return itemName === nameLower ||
+               itemName.includes(nameLower) ||
+               nameLower.includes(itemName);
+    });
+    if (!matched) return null;
+    return {
+        itemId: matched.id,
+        quantityNeeded: quantity,
+        measurementUnit: unit || matched.unit || 'whole',
+        name: matched.name
+    };
+}
+
+function resolveIngredientName(ing) {
+    // Prefer explicit name fields first
+    if (ing.name || ing.item_name || ing.ingredient_name || ing.itemName) {
+        return ing.name || ing.item_name || ing.ingredient_name || ing.itemName;
+    }
+    // Fall back to looking up itemId in cache
+    if (_groceryItemsCache && (ing.itemId || ing.item_id)) {
+        const id = ing.itemId || ing.item_id;
+        const found = _groceryItemsCache.find(g => g.id === id);
+        if (found) return found.name;
+    }
+    return '';
+}
+
+function readRecipeIngredientsCache() {
+    try {
+        const raw = localStorage.getItem(RECIPE_INGREDIENTS_CACHE_KEY);
+        if (!raw) {
+            return { byId: {}, byUserAndName: {} };
+        }
+        const parsed = JSON.parse(raw);
+        return {
+            byId: parsed?.byId || {},
+            byUserAndName: parsed?.byUserAndName || {}
+        };
+    } catch (error) {
+        return { byId: {}, byUserAndName: {} };
+    }
+}
+
+function writeRecipeIngredientsCache(cache) {
+    localStorage.setItem(RECIPE_INGREDIENTS_CACHE_KEY, JSON.stringify(cache));
+}
+
+function saveRecipeIngredientsToCache({ recipeId, userId, recipeName, ingredientsText }) {
+    const text = String(ingredientsText || '').trim();
+    if (!text) {
         return;
     }
-    
-    // Convert to base64
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        // Store base64 in the URL field
-        document.getElementById('recipeFormImage').value = e.target.result;
-        console.log('Recipe image converted to base64');
-    };
-    reader.readAsDataURL(file);
+
+    const cache = readRecipeIngredientsCache();
+
+    if (recipeId !== undefined && recipeId !== null && String(recipeId).trim() !== '') {
+        cache.byId[String(recipeId)] = text;
+    }
+
+    if (userId !== undefined && userId !== null && recipeName) {
+        const key = `${String(userId)}::${String(recipeName).trim().toLowerCase()}`;
+        cache.byUserAndName[key] = text;
+    }
+
+    writeRecipeIngredientsCache(cache);
+}
+
+function getCachedRecipeIngredients(recipe, currentUser) {
+    const cache = readRecipeIngredientsCache();
+
+    const recipeId = recipe?.id ?? recipe?.recipe_id;
+    if (recipeId !== undefined && recipeId !== null) {
+        const byId = cache.byId[String(recipeId)];
+        if (byId) {
+            return byId;
+        }
+    }
+
+    const ownerId = recipe?.user_id ?? recipe?.userId ?? currentUser?.id ?? currentUser?.userId;
+    const recipeName = (recipe?.name || '').toString().trim().toLowerCase();
+    if (ownerId !== undefined && ownerId !== null && recipeName) {
+        const key = `${String(ownerId)}::${recipeName}`;
+        return cache.byUserAndName[key] || '';
+    }
+
+    return '';
+}
+
+function isRecipeOwnedByUser(recipe, user) {
+    if (!recipe || !user) {
+        return false;
+    }
+
+    const recipeOwnerId = recipe.user_id ?? recipe.userId ?? recipe.owner_id ?? recipe.ownerId ?? recipe.created_by_id ?? recipe.createdById;
+    const userId = user.id ?? user.userId;
+
+    if (recipeOwnerId !== undefined && userId !== undefined && String(recipeOwnerId) === String(userId)) {
+        return true;
+    }
+
+    const recipeOwnerName = (recipe.username || recipe.created_by || recipe.owner || '').toString().trim().toLowerCase();
+    const currentUsername = (user.username || user.name || '').toString().trim().toLowerCase();
+
+    return !!recipeOwnerName && !!currentUsername && recipeOwnerName === currentUsername;
 }
 
 // Show recipe detail in popup
 async function showRecipeDetail(recipeId) {
     try {
         const response = await RecipeService.getRecipeById(recipeId);
-        const recipe = response.recipe || response.data || response;
+        const rawRecipePayload = response.recipe ?? response.data ?? response;
+        let recipe = Array.isArray(rawRecipePayload) ? (rawRecipePayload[0] || {}) : (rawRecipePayload || {});
+
+        // Ingredients can come from separate keys or from joined row arrays
+        const responseIngredients = response.ingredients
+            ?? response.recipe_ingredients
+            ?? response.recipeIngredients
+            ?? response.data?.ingredients
+            ?? response.data?.recipe_ingredients
+            ?? response.data?.recipeIngredients;
+
+        const combinedIngredients = responseIngredients ?? (Array.isArray(rawRecipePayload) ? rawRecipePayload : undefined);
+        if (combinedIngredients !== undefined && recipe.ingredients === undefined && recipe.ingredients_text === undefined) {
+            recipe = {
+                ...recipe,
+                ingredients: combinedIngredients
+            };
+        }
         
         currentRecipeId = recipeId;
         currentRecipeData = recipe;
@@ -219,7 +466,7 @@ async function showRecipeDetail(recipeId) {
         // Check if user can view this recipe
         const currentUser = AuthService.getUser();
         const isPublic = recipe.is_public !== undefined ? recipe.is_public : recipe.isPublic;
-        const isOwner = currentUser && recipe.user_id === currentUser.id;
+        const isOwner = isRecipeOwnedByUser(recipe, currentUser);
         
         // If recipe is private and user is not the owner, deny access
         if (!isPublic && !isOwner) {
@@ -244,14 +491,34 @@ async function showRecipeDetail(recipeId) {
         document.getElementById('recipeStars').textContent = stars;
         
         // Update ingredients
-        const ingredients = recipe.ingredients || [];
+        const ingredientsSource = recipe.ingredients
+            ?? recipe.ingredients_text
+            ?? recipe.ingredient_list
+            ?? recipe.ingredientList
+            ?? recipe.recipe_ingredients
+            ?? recipe.recipeIngredients
+            ?? recipe.ingredient
+            ?? [];
+        // Pre-fetch grocery items so we can resolve itemId → name in display
+        fetchGroceryItems().catch(() => {});
+
+        let ingredients = normalizeRecipeList(ingredientsSource);
+        if (ingredients.length === 0) {
+            const cachedIngredients = getCachedRecipeIngredients(recipe, currentUser);
+            ingredients = normalizeRecipeList(cachedIngredients);
+        }
         const ingredientsList = document.getElementById('ingredientsList');
         if (ingredients.length > 0) {
             ingredientsList.innerHTML = ingredients.map(ing => {
                 if (typeof ing === 'string') {
                     return `<li>${ing}</li>`;
                 } else {
-                    return `<li>${ing.quantity || ''} ${ing.unit || ''} ${ing.name || ing.ingredient_name || ''}</li>`;
+                    const quantity = ing.quantityNeeded ?? ing.quantity ?? ing.quantity_needed ?? '';
+                    const unit = ing.measurementUnit ?? ing.unit ?? ing.measurement_unit ?? '';
+                    const name = resolveIngredientName(ing);
+                    const formatted = `${quantity} ${unit} ${name}`.trim();
+                    const fallbackText = formatted || Object.values(ing).filter(v => v !== null && v !== undefined).join(' ').trim();
+                    return `<li>${fallbackText}</li>`;
                 }
             }).join('');
         } else {
@@ -259,11 +526,11 @@ async function showRecipeDetail(recipeId) {
         }
         
         // Update instructions
-        const instructions = recipe.instructions || [];
+        const instructions = normalizeRecipeList(recipe.instructions);
         const instructionsList = document.getElementById('instructionsList');
         if (instructions.length > 0) {
             instructionsList.innerHTML = instructions.map((inst, index) => {
-                let text = typeof inst === 'string' ? inst : inst.step_text || inst.instruction || '';
+                let text = typeof inst === 'string' ? inst : inst?.step_text || inst?.instruction || String(inst || '');
                 
                 // Parse timer patterns [timer:15m] or [timer:2h30m]
                 const timerPattern = /\[timer:(\d+h)?(\d+m)?\]/gi;
@@ -276,7 +543,7 @@ async function showRecipeDetail(recipeId) {
                 });
                 
                 // Legacy timer support
-                const timer = (typeof inst === 'object' && inst.timer) ? ` <button onclick="startTimer(${inst.timer}, 'Step ${index + 1}')" style="background-color: #FF5722; color: white; padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">⏱ ${inst.timer}m</button>` : '';
+                const timer = (typeof inst === 'object' && inst?.timer) ? ` <button onclick="startTimer(${inst.timer}, 'Step ${index + 1}')" style="background-color: #FF5722; color: white; padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">⏱ ${inst.timer}m</button>` : '';
                 return `<li>${text}${timer}</li>`;
             }).join('');
         } else {
@@ -286,7 +553,7 @@ async function showRecipeDetail(recipeId) {
         // Show edit/delete buttons if user owns this recipe
         const user = AuthService.getUser();
         const recipeActions = document.getElementById('recipeActions');
-        if (user && recipe.user_id === user.id) {
+        if (isRecipeOwnedByUser(recipe, user)) {
             recipeActions.style.display = 'block';
             const privacyBtn = document.getElementById('privacyToggleBtn');
             privacyBtn.textContent = (recipe.is_public || recipe.isPublic) ? 'Make Private' : 'Make Public';
@@ -303,7 +570,7 @@ async function showRecipeDetail(recipeId) {
         }
         
         // Update comments
-        const comments = recipe.comments || [];
+        const comments = normalizeRecipeList(recipe.comments);
         const commentsList = document.getElementById('commentsList');
         if (comments.length > 0) {
             // Sort comments by most recent first
@@ -313,7 +580,7 @@ async function showRecipeDetail(recipeId) {
                 <div class="comment">
                     <div class="comment-header">
                         <strong>${comment.username || 'Anonymous'}</strong>
-                        <span class="stars">${'★'.repeat(comment.rating)}${'☆'.repeat(5 - comment.rating)}</span>
+                        <span class="stars">${'★'.repeat(Math.max(0, Math.min(5, Number(comment.rating) || 0)))}${'☆'.repeat(5 - Math.max(0, Math.min(5, Number(comment.rating) || 0)))}</span>
                         <span style="color: #666; font-size: 12px; margin-left: 10px;">${new Date(comment.created_at || comment.createdAt).toLocaleDateString()}</span>
                     </div>
                     <p>${comment.comment_text || comment.text || comment.comment}</p>
@@ -433,25 +700,21 @@ function editRecipe() {
     document.getElementById('recipeFormTitle').textContent = 'Edit Recipe';
     document.getElementById('recipeFormId').value = currentRecipeId;
     document.getElementById('recipeFormName').value = currentRecipeData.name;
-    document.getElementById('recipeFormImage').value = currentRecipeData.image_url || currentRecipeData.imageUrl || '';
+    document.getElementById('recipeFormImage').value = currentRecipeData.image || currentRecipeData.image_url || currentRecipeData.imageUrl || '';
     document.getElementById('recipeFormCookTime').value = currentRecipeData.cook_time || currentRecipeData.cookTime || '';
-    document.getElementById('recipeFormVisibility').value = (currentRecipeData.is_public || currentRecipeData.isPublic) ? 'public' : 'private';
-    
-    // Format ingredients
-    const ingredients = currentRecipeData.ingredients || [];
-    const ingredientsText = ingredients.map(ing => {
-        if (typeof ing === 'string') return ing;
-        return `${ing.quantity || ''} ${ing.unit || ''} ${ing.name || ing.ingredient_name || ''}`.trim();
-    }).join('\n');
-    document.getElementById('recipeFormIngredients').value = ingredientsText;
-    
-    // Format instructions
-    const instructions = currentRecipeData.instructions || [];
-    const instructionsText = instructions.map(inst => {
-        if (typeof inst === 'string') return inst;
-        return inst.step_text || inst.instruction || '';
-    }).join('\n');
-    document.getElementById('recipeFormInstructions').value = instructionsText;
+    document.getElementById('recipeFormVisibility').value = (currentRecipeData.is_public !== undefined ? currentRecipeData.is_public : currentRecipeData.isPublic) ? 'public' : 'private';
+
+    const ingredientsSource = currentRecipeData.ingredients
+        ?? currentRecipeData.ingredients_text
+        ?? currentRecipeData.ingredient_list
+        ?? currentRecipeData.ingredientList
+        ?? currentRecipeData.ingredient
+        ?? getCachedRecipeIngredients(currentRecipeData, AuthService.getUser())
+        ?? '';
+    document.getElementById('recipeFormIngredients').value = normalizeRecipeList(ingredientsSource).join('\n');
+
+    // instructions is often a plain newline-delimited string from the backend
+    document.getElementById('recipeFormInstructions').value = currentRecipeData.instructions || '';
     
     // Close popup and show form
     closeRecipePopup();
@@ -497,8 +760,10 @@ async function toggleRecipePrivacy() {
             isPublic: newVisibility
         });
         alert(`Recipe is now ${newVisibility ? 'public' : 'private'}`);
-        // Reload the recipe
-        showRecipeDetail(currentRecipeId);
+        // Reload current recipe and refresh list sections
+        await showRecipeDetail(currentRecipeId);
+        await loadAllRecipes();
+        await loadUserRecipes();
     } catch (error) {
         console.error('Privacy toggle failed:', error);
         alert('Failed to update recipe privacy: ' + error.message);
@@ -518,9 +783,17 @@ async function checkPantryIngredients() {
     }
     
     try {
-        // Get user's pantry items
-        const pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY_ITEMS);
-        const pantryItems = pantryResponse.rows || pantryResponse.data || pantryResponse || [];
+        // Get user's pantry items (support both /pantry/items and /pantry backend styles)
+        let pantryResponse;
+        try {
+            pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY_ITEMS);
+        } catch (itemsError) {
+            console.warn('Pantry items endpoint failed, retrying with /pantry:', itemsError);
+            pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY);
+        }
+
+        const pantryItemsRaw = pantryResponse.rows || pantryResponse.data || pantryResponse.items || pantryResponse || [];
+        const pantryItems = Array.isArray(pantryItemsRaw) ? pantryItemsRaw : [];
         
         // Parse recipe ingredients
         const recipeIngredients = ingredientsText.split('\n').filter(line => line.trim());
@@ -571,46 +844,92 @@ async function submitRecipe(event) {
     event.preventDefault();
     
     const recipeId = document.getElementById('recipeFormId').value;
-    const name = document.getElementById('recipeFormName').value;
-    const imageUrl = document.getElementById('recipeFormImage').value;
-    const cookTime = document.getElementById('recipeFormCookTime').value;
+    const name = document.getElementById('recipeFormName').value.trim();
+    const imageUrlInput = document.getElementById('recipeFormImage').value.trim();
+    const imageUrl = imageUrlInput || null;
     const visibility = document.getElementById('recipeFormVisibility').value;
     const ingredientsText = document.getElementById('recipeFormIngredients').value;
     const instructionsText = document.getElementById('recipeFormInstructions').value;
-    
-    // Parse ingredients and instructions
-    const ingredients = ingredientsText.split('\n').filter(line => line.trim()).map(line => {
-        const parts = line.trim().split(' ');
-        if (parts.length >= 2) {
-            const quantity = parts[0];
-            const rest = parts.slice(1).join(' ');
-            return { quantity, name: rest };
+
+    if (!name) {
+        alert('Recipe name is required.');
+        return;
+    }
+
+    const user = AuthService.getUser();
+    if (!user || !user.id) {
+        alert('You must be logged in to create a recipe.');
+        return;
+    }
+
+    const ingredientLines = ingredientsText.split('\n').map(l => l.trim()).filter(Boolean);
+    const instructions = instructionsText.split('\n').filter(line => line.trim()).join('\n');
+
+    if (ingredientLines.length === 0) {
+        alert('Ingredients are required. Add at least one line.');
+        return;
+    }
+
+    // Match typed ingredient lines to real grocery items for backend persistence
+    let groceryItems = [];
+    try {
+        groceryItems = await fetchGroceryItems();
+    } catch (e) {
+        console.warn('Could not load grocery items for matching:', e);
+    }
+
+    const matchedIngredients = [];
+    const unmatchedLines = [];
+    for (const line of ingredientLines) {
+        const matched = matchIngredientToItem(line, groceryItems);
+        if (matched) {
+            matchedIngredients.push(matched);
+        } else {
+            unmatchedLines.push(line);
         }
-        return { quantity: '', name: line.trim() };
-    });
-    
-    const instructions = instructionsText.split('\n').filter(line => line.trim());
-    
+    }
+
+    if (matchedIngredients.length === 0 && groceryItems.length > 0) {
+        const proceed = confirm(
+            `None of your ingredients matched items in the grocery database.\n\nIngredients must match grocery items (e.g. "Tomatoes", "Chicken Breast").\n\nProceed anyway? (ingredients may not save to database)`
+        );
+        if (!proceed) return;
+    }
+
+    // Plain text fallback for unmatched lines (for local cache display)
+    const ingredientsPlainText = ingredientLines.join('\n');
+
     const recipeData = {
+        userId: user.id,
         name,
-        image_url: imageUrl,
-        imageUrl: imageUrl,
-        cook_time: cookTime,
-        cookTime: cookTime,
-        is_public: visibility === 'public',
+        image: imageUrl || null,
         isPublic: visibility === 'public',
-        ingredients,
-        instructions
+        ingredients: matchedIngredients.length > 0 ? matchedIngredients : null,
+        instructions: instructions || null,
+        timers: null
     };
     
     try {
         if (recipeId) {
             // Update existing recipe
             await RecipeService.updateRecipe(recipeId, recipeData);
+            saveRecipeIngredientsToCache({
+                recipeId,
+                userId: user.id,
+                recipeName: name,
+                ingredientsText: ingredientsPlainText
+            });
             alert('Recipe updated successfully!');
         } else {
             // Create new recipe
-            await RecipeService.createRecipe(recipeData);
+            const createdRecipe = await RecipeService.createRecipe(recipeData);
+            const createdId = createdRecipe?.id || createdRecipe?.recipe?.id || createdRecipe?.data?.id;
+            saveRecipeIngredientsToCache({
+                recipeId: createdId,
+                userId: user.id,
+                recipeName: name,
+                ingredientsText: ingredientsPlainText
+            });
             alert('Recipe created successfully!');
         }
         
@@ -632,8 +951,18 @@ async function submitComment(event) {
         return;
     }
     
-    const rating = parseInt(document.getElementById('commentRating').value);
-    const comment = document.getElementById('commentText').value;
+    const rating = parseInt(document.getElementById('commentRating').value, 10);
+    const comment = document.getElementById('commentText').value.trim();
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        alert('Please select a valid rating between 1 and 5.');
+        return;
+    }
+
+    if (!comment) {
+        alert('Please enter a comment before submitting.');
+        return;
+    }
     
     try {
         await RecipeService.addComment(currentRecipeId, rating, comment);

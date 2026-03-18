@@ -24,9 +24,9 @@ const API_CONFIG = {
         
         // Pantry endpoints
         PANTRY: '/pantry',
-        PANTRY_ITEMS: '/pantry/items',
-        ADD_PANTRY_ITEM: '/pantry/items',
-        REMOVE_PANTRY_ITEM: '/pantry/items/',
+        PANTRY_ITEMS: '/pantry',
+        ADD_PANTRY_ITEM: '/pantry',
+        REMOVE_PANTRY_ITEM: '/pantry/',
         
         // Store endpoints
         STORES: '/stores',

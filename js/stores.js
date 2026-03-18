@@ -173,10 +173,11 @@ async function addItemToPantry(itemId, itemName, unit, stock) {
     }
     
     try {
+        const user = AuthService.getUser();
         const itemData = {
-            storeItemId: itemId,
+            itemId: itemId,
             quantity: quantity,
-            unit: unit
+            userId: user.id
         };
         
         await StoreService.addToPantry(itemData);
