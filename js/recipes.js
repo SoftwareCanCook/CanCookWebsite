@@ -474,21 +474,53 @@ async function showRecipeDetail(recipeId) {
             return;
         }
         
-        // Update popup content
-        document.getElementById('recipeImage').src = recipe.image_url || recipe.imageUrl || 'apple.jpg';
-        document.getElementById('recipeName').textContent = recipe.name;
-        document.getElementById('recipeCreator').textContent = recipe.username || recipe.created_by || 'Unknown';
-        document.getElementById('recipeCookTime').textContent = recipe.cook_time || recipe.cookTime || 'N/A';
-        document.getElementById('recipeVisibility').textContent = (recipe.is_public || recipe.isPublic) ? 'Public' : 'Private';
+        // Update popup content (support both legacy and current popup markup)
+        const recipeImageEl = document.getElementById('recipeImage') || document.querySelector('#popup .recipe-image img');
+        const recipeNameEl = document.getElementById('recipeName') || document.getElementById('name');
+        const recipeCreatorEl = document.getElementById('recipeCreator');
+        const recipeCookTimeEl = document.getElementById('recipeCookTime') || document.getElementById('cookTime');
+        const recipeVisibilityEl = document.getElementById('recipeVisibility');
+
+        if (recipeImageEl) {
+            const recipeImageSrc = recipe.image_url
+                || recipe.imageUrl
+                || recipe.image
+                || response.image_url
+                || response.imageUrl
+                || response.image
+                || 'apple.jpg';
+            recipeImageEl.src = recipeImageSrc;
+        }
+        if (recipeNameEl) {
+            recipeNameEl.textContent = recipe.name || 'Untitled Recipe';
+        }
+        if (recipeCreatorEl) {
+            recipeCreatorEl.textContent = recipe.username || recipe.created_by || 'Unknown';
+        }
+        if (recipeCookTimeEl) {
+            recipeCookTimeEl.textContent = recipe.cook_time || recipe.cookTime || 'N/A';
+        }
+        if (recipeVisibilityEl) {
+            recipeVisibilityEl.textContent = (recipe.is_public || recipe.isPublic) ? 'Public' : 'Private';
+        }
         
         // Update rating
         const avgRating = parseFloat(recipe.average_rating || recipe.averageRating || 0);
         const ratingCount = parseInt(recipe.rating_count || recipe.ratingCount || 0);
-        document.getElementById('rating').textContent = avgRating.toFixed(1);
-        document.getElementById('ratingCount').textContent = `(${ratingCount} rating${ratingCount !== 1 ? 's' : ''})`;
+        const ratingEl = document.getElementById('rating') || document.getElementById('averageRating');
+        const ratingCountEl = document.getElementById('ratingCount');
+        if (ratingEl) {
+            ratingEl.textContent = avgRating.toFixed(1);
+        }
+        if (ratingCountEl) {
+            ratingCountEl.textContent = `(${ratingCount} rating${ratingCount !== 1 ? 's' : ''})`;
+        }
         
         const stars = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
-        document.getElementById('recipeStars').textContent = stars;
+        const recipeStarsEl = document.getElementById('recipeStars') || document.getElementById('stars');
+        if (recipeStarsEl) {
+            recipeStarsEl.textContent = stars;
+        }
         
         // Update ingredients
         const ingredientsSource = recipe.ingredients
@@ -508,7 +540,7 @@ async function showRecipeDetail(recipeId) {
             ingredients = normalizeRecipeList(cachedIngredients);
         }
         const ingredientsList = document.getElementById('ingredientsList');
-        if (ingredients.length > 0) {
+        if (ingredientsList && ingredients.length > 0) {
             ingredientsList.innerHTML = ingredients.map(ing => {
                 if (typeof ing === 'string') {
                     return `<li>${ing}</li>`;
@@ -521,14 +553,14 @@ async function showRecipeDetail(recipeId) {
                     return `<li>${fallbackText}</li>`;
                 }
             }).join('');
-        } else {
+        } else if (ingredientsList) {
             ingredientsList.innerHTML = '<li>No ingredients listed</li>';
         }
         
         // Update instructions
         const instructions = normalizeRecipeList(recipe.instructions);
         const instructionsList = document.getElementById('instructionsList');
-        if (instructions.length > 0) {
+        if (instructionsList && instructions.length > 0) {
             instructionsList.innerHTML = instructions.map((inst, index) => {
                 let text = typeof inst === 'string' ? inst : inst?.step_text || inst?.instruction || String(inst || '');
                 
@@ -546,33 +578,39 @@ async function showRecipeDetail(recipeId) {
                 const timer = (typeof inst === 'object' && inst?.timer) ? ` <button onclick="startTimer(${inst.timer}, 'Step ${index + 1}')" style="background-color: #FF5722; color: white; padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">⏱ ${inst.timer}m</button>` : '';
                 return `<li>${text}${timer}</li>`;
             }).join('');
-        } else {
+        } else if (instructionsList) {
             instructionsList.innerHTML = '<li>No instructions listed</li>';
         }
         
         // Show edit/delete buttons if user owns this recipe
         const user = AuthService.getUser();
         const recipeActions = document.getElementById('recipeActions');
-        if (isRecipeOwnedByUser(recipe, user)) {
-            recipeActions.style.display = 'block';
-            const privacyBtn = document.getElementById('privacyToggleBtn');
-            privacyBtn.textContent = (recipe.is_public || recipe.isPublic) ? 'Make Private' : 'Make Public';
-        } else {
-            recipeActions.style.display = 'none';
+        if (recipeActions) {
+            if (isRecipeOwnedByUser(recipe, user)) {
+                recipeActions.style.display = 'block';
+                const privacyBtn = document.getElementById('privacyToggleBtn');
+                if (privacyBtn) {
+                    privacyBtn.textContent = (recipe.is_public || recipe.isPublic) ? 'Make Private' : 'Make Public';
+                }
+            } else {
+                recipeActions.style.display = 'none';
+            }
         }
         
         // Show/hide add comment form
         const addCommentForm = document.getElementById('addCommentForm');
-        if (user && user.role === 'user') {
-            addCommentForm.style.display = 'block';
-        } else {
-            addCommentForm.style.display = 'none';
+        if (addCommentForm) {
+            if (user && user.role === 'user') {
+                addCommentForm.style.display = 'block';
+            } else {
+                addCommentForm.style.display = 'none';
+            }
         }
         
         // Update comments
         const comments = normalizeRecipeList(recipe.comments);
         const commentsList = document.getElementById('commentsList');
-        if (comments.length > 0) {
+        if (commentsList && comments.length > 0) {
             // Sort comments by most recent first
             comments.sort((a, b) => new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt));
             
@@ -586,7 +624,7 @@ async function showRecipeDetail(recipeId) {
                     <p>${comment.comment_text || comment.text || comment.comment}</p>
                 </div>
             `).join('');
-        } else {
+        } else if (commentsList) {
             commentsList.innerHTML = '<p>No comments yet. Be the first to leave a review!</p>';
         }
         
