@@ -257,26 +257,14 @@ async function handleSignup(event) {
 // Update navbar based on auth status
 function updateNavbar() {
     const navbar = document.querySelector('.navbar');
-    if (navbar) {
-        // The user is initially logged out, show the logged out navbar
-        navbar.innerHTML = `
-            <div class="logo">Can Cook</div>
-            <div>
-                <a href="index.html">Home</a>
-                <a href="stores.html">Stores</a>
-                <a href="login.html">Login</a>
-            </div>
-            <search>
-                <form action="/search" method="get">
-                    <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
-                </form>
-            </search>
-        `;
+    if (!navbar) {
         return;
     }
 
     const user = AuthService.getUser();
-    if (user && navbar) {
+    if (user) {
+        const welcomeMessage = `Welcome ${user.username}`;
+
         // Further adjust the navbar based on user role
         if (user.role == 'user') {
             // The user is a regular user, show index.html, pantry.html, stores.html, and logout
@@ -286,7 +274,7 @@ function updateNavbar() {
                     <a href="index.html">Home</a>
                     <a href="pantry.html">Pantry</a>
                     <a href="stores.html">Grocery Stores</a>
-                    <span style="color: white; margin-right: 10px;">Welcome, ${user.username}! You are a ${user.role}.</span>
+                    <span style="color: white; margin-right: 10px;">${welcomeMessage}</span>
                     <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
                 </div>
                 <search>
@@ -301,7 +289,7 @@ function updateNavbar() {
                 <div class="logo">Can Cook</div>
                 <div>
                     <a href="admin.html">Admin Panel</a>
-                    <span style="color: white; margin-right: 10px;">Welcome, ${user.username}! You are an ${user.role}.</span>
+                    <span style="color: white; margin-right: 10px;">${welcomeMessage}</span>
                     <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
                 </div>
             `;
@@ -311,7 +299,7 @@ function updateNavbar() {
                 <div class="logo">Can Cook</div>
                 <div>
                     <a href="grocery.html">Grocery Store Panel</a>
-                    <span style="color: white; margin-right: 10px;">Welcome, ${user.username}! You are a Grocery Admin.</span>
+                    <span style="color: white; margin-right: 10px;">${welcomeMessage}</span>
                     <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
                 </div>
             `;
@@ -323,7 +311,7 @@ function updateNavbar() {
                     <a href="index.html">Home</a>
                     <a href="pantry.html">Pantry</a>
                     <a href="stores.html">Grocery Stores</a>
-                    <span style="color: white; margin-right: 10px;">Welcome, ${user.username}!</span>
+                    <span style="color: white; margin-right: 10px;">${welcomeMessage}</span>
                     <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
                 </div>
                 <search>
@@ -333,7 +321,23 @@ function updateNavbar() {
                 </search>
             `;
         }
+        return;
     }
+
+    // Logged out navbar
+    navbar.innerHTML = `
+        <div class="logo">Can Cook</div>
+        <div>
+            <a href="index.html">Home</a>
+            <a href="stores.html">Stores</a>
+            <a href="login.html">Login</a>
+        </div>
+        <search>
+            <form action="/search" method="get">
+                <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
+            </form>
+        </search>
+    `;
 }
 
 // Initialize auth UI on page load

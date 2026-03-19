@@ -86,6 +86,26 @@ const CATEGORY_UNITS = {
     'Pantry Staples': ['lbs', 'oz', 'each', 'bag', 'box', 'can', 'bottle', 'jar']
 };
 
+const MAX_IMAGE_WIDTH = 400;
+const MAX_IMAGE_HEIGHT = 400;
+
+function validateImageDimensions(imageUrl) {
+    return new Promise((resolve, reject) => {
+        const testImage = new Image();
+
+        testImage.onload = () => {
+            const isValid = testImage.naturalWidth <= MAX_IMAGE_WIDTH && testImage.naturalHeight <= MAX_IMAGE_HEIGHT;
+            resolve(isValid);
+        };
+
+        testImage.onerror = () => {
+            reject(new Error('Unable to load image from URL.'));
+        };
+
+        testImage.src = imageUrl;
+    });
+}
+
 // Update unit options based on category
 function updateUnitOptions() {
     const category = document.getElementById('itemCategory').value;
@@ -171,6 +191,19 @@ async function saveItem() {
     if (imageUrl && !imageUrl.match(/^https?:\/\//i)) {
         alert('Please enter a valid image URL starting with http:// or https://\nOr leave blank for default image.');
         return;
+    }
+
+    if (imageUrl) {
+        try {
+            const isValidImageSize = await validateImageDimensions(imageUrl);
+            if (!isValidImageSize) {
+                alert(`Image must be ${MAX_IMAGE_WIDTH}x${MAX_IMAGE_HEIGHT} pixels or smaller.`);
+                return;
+            }
+        } catch (error) {
+            alert('Unable to validate image URL. Please check the URL and try again.');
+            return;
+        }
     }
     
     const itemData = {
