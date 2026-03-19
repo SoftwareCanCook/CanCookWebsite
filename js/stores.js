@@ -1,7 +1,7 @@
 // Store Service
 class StoreService {
     
-    /*/ Get all stores
+    // Get all stores
     static async getAllStores() {
         try {
             return await ApiService.get(API_CONFIG.ENDPOINTS.STORES);
@@ -9,7 +9,7 @@ class StoreService {
             console.error('Failed to fetch stores:', error);
             return [];
         }
-    }*/
+    }
     
     // Get store items
     static async getStoreItems(storeId) {
@@ -32,7 +32,7 @@ class StoreService {
     }
 }
 
-/*/ Load and display stores
+// Load and display stores
 async function loadStores() {
     try {
         const response = await StoreService.getAllStores();
@@ -50,7 +50,7 @@ async function loadStores() {
                 const phone = store.phone || 'N/A';
                 
                 storesHTML += `
-                    <div class="store-container" style="display: flex; align-items: center; border: 2px solid #ddd; border-radius: 8px; padding: 20px; margin: 15px 0; background-color: #f9f9f9; cursor: pointer; transition: transform 0.2s;" onclick="openStorePopup(${store.id})" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    <div class="store-container" style="display: flex; align-items: center; border: 2px solid #ddd; border-radius: 8px; padding: 20px; margin: 15px 0; background-color: #f9f9f9; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="card" style="width: 150px; height: 150px; margin-right: 20px; flex-shrink: 0;">
                             <img src="${logoUrl}" alt="${store.name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
                         </div>
@@ -58,7 +58,7 @@ async function loadStores() {
                             <h2 style="margin: 0 0 10px 0; color: #2196F3;">${store.name}</h2>
                             <p style="margin: 5px 0; color: #666;"><strong>📍 Address:</strong> ${address}</p>
                             <p style="margin: 5px 0; color: #666;"><strong>📞 Phone:</strong> ${phone}</p>
-                            <button style="margin-top: 10px; background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">View Items</button>
+                            <button onclick="openStorePopup(${store.id}, '${store.name}')" style="margin-top: 10px; background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">View Items</button>
                         </div>
                     </div>
                 `;
@@ -75,76 +75,66 @@ async function loadStores() {
             container.innerHTML = '<p style="padding: 20px; color: red;">Error loading stores. Please try again later.</p>';
         }
     }
-}*/
+}
 
 // Load and display store items in popup
-async function loadStoreItems(storeId) {
+async function loadStoreItems(storeId, storeName) {
     if (!AuthService.requireAuth()) {
         return;
     }
     
     try {
-        const items = await GroceryService.getStoreItems(storeId);
-        const table = document.querySelector('[id="${storeId}"] table');
+        // Update popup title
+        document.getElementById('storePopupTitle').textContent = `${storeName} - Inventory`;
+        
+        const response = await StoreService.getStoreItems(storeId);
+        const rawItems = response.rows || response.data || response || [];
+        const items = Array.isArray(rawItems) ? rawItems : [];
+        const table = document.getElementById('storeItemsTable');
         
         if (table && items.length > 0) {
-            // Group items by category
-            const categories = {};
-            items.forEach(item => {
-                const category = item.category || 'Other';
-                if (!items[category]) {
-                    items[category] = [];
-                }
-                items[category].push(item);
-            });
-            
             // Build table HTML
-            const itemNames = Object.keys(items.name);
-            let tableHTML = '<caption><strong>All Items</strong></caption>';
-            const itemCount = items.rows.length;
-
-            // Header row
-            tableHTML += `
-                <tr>
-                    <th>ID</th>
-                    <th>Store ID</th>
-                    <th>Item Name</th>   
-                    <th>Category</th>
-                    <th>Quantity</th>
-                    <th>Stock</th>
+            let tableHTML = `
+                <tr style="background-color: #2196F3; color: white;">
+                    <th style="padding: 10px; text-align: left;">Item Name</th>   
+                    <th style="padding: 10px; text-align: left;">Category</th>
+                    <th style="padding: 10px; text-align: left;">Unit</th>
+                    <th style="padding: 10px; text-align: center;">Stock</th>
+                    <th style="padding: 10px; text-align: center;">Action</th>
                 </tr>
             `;
 
             // Data rows
-            for (let i = 0; i < itemCount; i++) {
-                tableHTML += '<tr>';
-                itemNames.forEach(cat => {
-                    const item = items[cat][i];
-                    if (item) {
-                        tableHTML += `
-                            <td>${item.id}</td>
-                            <td>${item.store_id}</td>
-                            <td>${item.name}</td>
-                            <td>${item.category}</td>
-                            <td>${item.quantity}</td>
-                            <td>${item.stock}
-                        `;
-                        if (item.stock > 0) {
-                            tableHTML += '<button onclick="StoreService.addItemToPantry(${item.id}, ${item.name})" style="margin-left: 5px;" onclick="GroceryService.decrementStock(${item.storeId}, ${item.name})">Add One to Pantry</button></td>';
-                        } else {
-                            tableHTML += '<button>No Stock Remaining</button>';
-                        }
-                    } else {
-                        tableHTML += '<td></td><td></td><td></td><td></td><td></td><td></td>';
-                    }
-                });
-                tableHTML += '</tr>';
-            }
+            items.forEach(item => {
+                const stock = item.stock || item.quantity || 0;
+                const unit = item.unit || 'units';
+                const name = item.name || 'Unknown';
+                
+                tableHTML += `
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">${name}</td>
+                        <td style="padding: 10px;">${item.category || 'N/A'}</td>
+                        <td style="padding: 10px;">${unit}</td>
+                        <td style="padding: 10px; text-align: center;">${stock}</td>
+                        <td style="padding: 10px; text-align: center;">
+                `;
+                
+                if (stock > 0) {
+                    tableHTML += `<button onclick="addItemToPantry(${item.id}, '${name.replace(/'/g, "\\'")}', '${unit.replace(/'/g, "\\'")}', ${stock})" style="background-color: #4CAF50; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Add to Pantry</button>`;
+                } else {
+                    tableHTML += `<button disabled style="background-color: #999; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: not-allowed; font-size: 12px;">Out of Stock</button>`;
+                }
+                
+                tableHTML += `
+                        </td>
+                    </tr>
+                `;
+            });
+            
             table.innerHTML = tableHTML;
         } else if (table) {
             table.innerHTML = `
-                <caption><strong>All Items</strong></caption>
-                <tr><td colspan="7">No items found in this store.</td></tr>
+                <tr><td colspan="5" style="padding: 20px; text-align: center; color: #999;">No items found in this store.</td></tr>
             `;
         }
         
@@ -152,8 +142,14 @@ async function loadStoreItems(storeId) {
         document.getElementById('storeItemsPopup').style.display = 'flex';
         
     } catch (error) {
-        console.error('Failed to load all items:', error);
+        console.error('Failed to load store items:', error);
+        alert('Failed to load store items: ' + error.message);
     }
+}
+
+// Open store popup
+function openStorePopup(storeId, storeName) {
+    loadStoreItems(storeId, storeName);
 }
 
 // Close store popup
@@ -197,13 +193,7 @@ async function addItemToPantry(itemId, itemName, unit, stock) {
 // Initialize stores page
 document.addEventListener('DOMContentLoaded', () => {
     if (window.location.pathname.includes('stores.html')) {
-        // Select all .popup elements
-        const popups = document.querySelectorAll('.popup');
-        popups.forEach(popup => {
-            popup.addEventListener('click', function() {
-                // "this" refers to the specific popup that was clicked
-                loadStoreItems(this.id);
-            });
-        });
+        AuthService.requireAuth();
+        loadStores();
     }
 });

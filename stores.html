@@ -21,46 +21,21 @@
         <h1>Welcome to our grocery store database!</h1>
         <p>Where you can add food items to your pantry so you CanCook some delicious recipes.</p>
 
-        <!-- Store Links -->
-        <div class="store-container">
-            <div class="card">
-                <div class="store-popup"><a href="#1"></a></div>
-                <img src="apple.jpg" alt="Description">
-            </div>
-            <div class="store-description">
-                <h2>Walmart</h2>
-                <p>This is a description with some store information (address, phone, etc).</p>
-            </div>
+        <!-- Dynamic Stores Container -->
+        <div id="storesContainer">
+            <p style="text-align: center; color: #999;">Loading stores...</p>
         </div>
-        <div class="store-container">
-            <div class="card">
-                <div class="store-popup"><a href="#2"></a></div>
-                <img src="apple.jpg" alt="Description">
-            </div>
-            <div class="store-description">
-                <h2>Meijer</h2>
-                <p>This is a description with some store information (address, phone, etc).</p>
-            </div>
-        </div>
+    </div>
 
-        <!-- Store Popups -->
-        <div id="1" class="popup">
-            <div class="popup-content">
-                <a href="#">X</a>
-                <h1>Walmart</h1>
-                <p>This is the grocery page for Walmart.</p>
-                <table></table>
+    <!-- Store Items Modal Popup -->
+    <div id="storeItemsPopup" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+        <div style="background-color: white; border-radius: 8px; padding: 30px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="storePopupTitle" style="margin: 0;">Store Inventory</h2>
+                <button onclick="closeStorePopup()" style="background-color: #f44336; color: white; border: none; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 16px;">Close</button>
             </div>
-            <a href="#" class="popup-return"></a>
-        </div>
-        <div id="2" class="popup">
-            <div class="popup-content">
-                <a href="#">X</a>
-                <h1>Meijer</h1>
-                <p>This is the grocery page for Meijer.</p>
-                <table></table>
-            </div>
-            <a href="#" class="popup-return"></a>
+            <table id="storeItemsTable" style="width: 100%; border-collapse: collapse;">
+            </table>
         </div>
     </div>
 
