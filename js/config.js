@@ -35,6 +35,7 @@ const API_CONFIG = {
         // Comment/Review endpoints
         COMMENTS: '/comments',
         ADD_COMMENT: '/comments',
+        RATINGS: '/ratings',
         
         // User/Admin endpoints
         USER: '/users',

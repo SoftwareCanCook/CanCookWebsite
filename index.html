@@ -72,6 +72,12 @@
                             <h4 id="stars" class="stars">☆☆☆☆☆</span>
                             <h3 id="averageRating" class="rating-value">loading...</span>
                         </div>
+
+                        <div id="recipeActions" style="display: none; margin: 10px 0 20px 0;">
+                            <button type="button" onclick="editRecipe()" style="background-color: #2196F3; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Edit Recipe</button>
+                            <button id="privacyToggleBtn" type="button" onclick="toggleRecipePrivacy()" style="background-color: #FF9800; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Make Private</button>
+                            <button type="button" onclick="deleteRecipe()" style="background-color: #f44336; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;">Delete Recipe</button>
+                        </div>
                     
                         <!--Ingredients and instructions-->
                         <div class="recipe-content">
@@ -90,21 +96,25 @@
                         <!--Comments section-->
                         <div class="comments-section">
                             <h2>Reviews & Comments</h2>
-                            <!--Retrieve comments and ratings-->
-                            <div class="comment">
-                                <div class="comment-header">
-                                    <strong>Joe Johnson</strong>
-                                    <span class="stars">★★★★☆</span>
-                                </div>
-                                <p>This apple recipe was a bit time-consuming but the result was delicious!</p>
+                            <div id="commentsList">
+                                <p>Loading comments...</p>
                             </div>
-                            <div class="comment">
-                                <div class="comment-header">
-                                    <strong>Bob</strong>
-                                    <span class="stars">★☆☆☆☆</span>
-                                </div>
-                                <p>I hate apples!</p>
-                            </div>
+                            <form id="addCommentForm" onsubmit="submitComment(event)" style="display: none; margin-top: 15px; text-align: left;">
+                                <h3 style="margin-bottom: 10px;">Leave a Review</h3>
+                                <label for="commentRating">Rating:</label>
+                                <select id="commentRating" required style="margin-left: 8px; padding: 6px;">
+                                    <option value="5">5 - Excellent</option>
+                                    <option value="4">4 - Good</option>
+                                    <option value="3">3 - Average</option>
+                                    <option value="2">2 - Poor</option>
+                                    <option value="1">1 - Very Poor</option>
+                                </select>
+                                <br><br>
+                                <label for="commentText">Comment:</label><br>
+                                <textarea id="commentText" rows="4" required maxlength="1000" placeholder="Share your thoughts about this recipe..." style="width: 100%; padding: 8px; margin-top: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+                                <br><br>
+                                <button id="commentSubmitBtn" type="submit" style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">Submit Review</button>
+                            </form>
                         </div>
                 </div>
             </div>
@@ -137,6 +147,14 @@
                     
                     <label>Ingredients: * (one per line with quantity)</label><br>
                     <textarea id="recipeFormIngredients" rows="6" required placeholder="e.g.&#10;2 cups flour&#10;1 tsp salt&#10;3 eggs" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"></textarea><br><br>
+
+                    <div style="text-align: left; margin: 10px 0 20px 0; border: 1px solid #ddd; border-radius: 6px; padding: 12px;">
+                        <h3 style="margin: 0 0 10px 0;">Your Pantry Items</h3>
+                        <div id="recipePantryPicker" style="max-height: 220px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 8px; background: #fafafa;">
+                            <p style="margin: 0; color: #666;">Loading pantry items...</p>
+                        </div>
+                        <small style="color: #666; display: block; margin-top: 8px;">Choose quantity and click "Use in Recipe" to add item to ingredients. Selected amounts are deducted from your pantry when creating the recipe.</small>
+                    </div>
                     
                     <label>Instructions: * (one step per line)</label><br>
                     <small style="color: #666;">Add timers with [timer:15m] or [timer:2h30m] format</small><br>

@@ -1,5 +1,44 @@
 // Recipe Service
 class RecipeService {
+
+    static buildCommentPayload(recipeId, userId, comment, commentId = null) {
+        const numericRecipeId = Number(recipeId);
+        const numericUserId = Number(userId);
+        const commentText = String(comment || '').trim();
+
+        const payload = {
+            recipe_id: numericRecipeId,
+            recipeId: numericRecipeId,
+            user_id: numericUserId,
+            userId: numericUserId,
+            comment_text: commentText,
+            commentText: commentText,
+            comment: commentText,
+            text: commentText
+        };
+
+        if (commentId !== null && commentId !== undefined) {
+            payload.comment_id = Number(commentId);
+            payload.commentId = Number(commentId);
+            payload.id = Number(commentId);
+        }
+
+        return payload;
+    }
+
+    static buildRatingPayload(recipeId, userId, rating) {
+        const numericRecipeId = Number(recipeId);
+        const numericUserId = Number(userId);
+        const numericRating = Math.max(1, Math.min(5, Number(rating) || 0));
+
+        return {
+            recipeId: numericRecipeId,
+            recipe_id: numericRecipeId,
+            userId: numericUserId,
+            user_id: numericUserId,
+            rating: numericRating
+        };
+    }
     
     // Get all recipes
     static async getAllRecipes() {
@@ -82,19 +121,14 @@ class RecipeService {
     }
     
     // Add comment to recipe
-    static async addComment(recipeId, rating, comment) {
-        const numericRecipeId = Number(recipeId);
-        const numericRating = Math.max(1, Math.min(5, Number(rating) || 0));
-        const commentText = String(comment || '').trim();
+    static async addComment(recipeId, userId, comment) {
+        const payload = this.buildCommentPayload(recipeId, userId, comment);
 
         try {
             return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_COMMENT, {
-                recipe_id: numericRecipeId,
-                recipeId: numericRecipeId,
-                rating: numericRating,
-                comment_text: commentText,
-                comment: commentText,
-                text: commentText
+                recipeId: payload.recipeId,
+                userId: payload.userId,
+                commentText: payload.commentText
             });
         } catch (error) {
             console.error('Failed to add comment (primary payload):', error);
@@ -102,12 +136,64 @@ class RecipeService {
             // Retry with minimal snake_case payload for stricter backends
             try {
                 return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_COMMENT, {
-                    recipe_id: numericRecipeId,
-                    rating: numericRating,
-                    comment_text: commentText
+                    recipe_id: payload.recipe_id,
+                    user_id: payload.user_id,
+                    comment_text: payload.comment_text
                 });
             } catch (retryError) {
                 console.error('Failed to add comment (fallback payload):', retryError);
+                throw retryError;
+            }
+        }
+    }
+
+    // Update existing comment on recipe
+    static async updateComment(commentId, recipeId, userId, comment) {
+        const numericCommentId = Number(commentId);
+        const payload = this.buildCommentPayload(recipeId, userId, comment, numericCommentId);
+
+        try {
+            return await ApiService.put(`${API_CONFIG.ENDPOINTS.COMMENTS}/${numericCommentId}`, {
+                recipeId: payload.recipeId,
+                userId: payload.userId,
+                commentText: payload.commentText
+            });
+        } catch (error) {
+            console.error('Failed to update comment by id endpoint, trying fallback:', error);
+
+            try {
+                return await ApiService.put(`${API_CONFIG.ENDPOINTS.COMMENTS}/${numericCommentId}`, {
+                    recipe_id: payload.recipe_id,
+                    user_id: payload.user_id,
+                    comment_text: payload.comment_text
+                });
+            } catch (retryError) {
+                console.error('Failed to update comment fallback endpoint:', retryError);
+                throw retryError;
+            }
+        }
+    }
+
+    static async addOrUpdateRating(recipeId, userId, rating) {
+        const payload = this.buildRatingPayload(recipeId, userId, rating);
+
+        try {
+            return await ApiService.post(API_CONFIG.ENDPOINTS.RATINGS, {
+                recipeId: payload.recipeId,
+                userId: payload.userId,
+                rating: payload.rating
+            });
+        } catch (error) {
+            console.error('Failed to submit rating (primary payload):', error);
+
+            try {
+                return await ApiService.post(API_CONFIG.ENDPOINTS.RATINGS, {
+                    recipe_id: payload.recipe_id,
+                    user_id: payload.user_id,
+                    rating: payload.rating
+                });
+            } catch (retryError) {
+                console.error('Failed to submit rating (fallback payload):', retryError);
                 throw retryError;
             }
         }
@@ -231,6 +317,9 @@ async function loadUserRecipes() {
 // Store current recipe ID for edit/delete operations
 let currentRecipeId = null;
 let currentRecipeData = null;
+let currentUserCommentId = null;
+let recipePantryItemsCache = [];
+const selectedPantryIngredients = new Map();
 
 function normalizeRecipeList(value) {
     if (Array.isArray(value)) {
@@ -417,6 +506,168 @@ function getCachedRecipeIngredients(recipe, currentUser) {
     return '';
 }
 
+async function fetchUserPantryItemsForRecipeForm() {
+    let pantryResponse;
+    try {
+        pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY_ITEMS);
+    } catch (itemsError) {
+        console.warn('Pantry items endpoint failed for recipe picker, retrying with /pantry:', itemsError);
+        pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY);
+    }
+
+    const pantryItemsRaw = pantryResponse.rows || pantryResponse.data || pantryResponse.items || pantryResponse || [];
+    const pantryItems = Array.isArray(pantryItemsRaw) ? pantryItemsRaw : [];
+
+    let groceryItems = [];
+    try {
+        groceryItems = await fetchGroceryItems();
+    } catch (error) {
+        console.warn('Could not fetch grocery metadata for pantry picker:', error);
+    }
+
+    const groceryById = new Map(groceryItems.map(item => [String(item.id), item]));
+
+    return pantryItems
+        .map(row => {
+            const pantryRowId = row.id;
+            const itemId = row.itemId ?? row.item_id ?? row.itemID;
+            const lookup = groceryById.get(String(itemId)) || {};
+            const quantity = Number(row.quantity ?? 0);
+            return {
+                pantryRowId,
+                itemId,
+                quantity,
+                name: row.name || row.item_name || row.itemName || lookup.name || `Item #${itemId}`,
+                unit: row.unit || lookup.unit || 'units'
+            };
+        })
+        .filter(item => item.pantryRowId !== undefined && item.pantryRowId !== null && item.quantity > 0);
+}
+
+function renderRecipePantryPicker() {
+    const picker = document.getElementById('recipePantryPicker');
+    if (!picker) {
+        return;
+    }
+
+    if (recipePantryItemsCache.length === 0) {
+        picker.innerHTML = '<p style="margin: 0; color: #666;">No pantry items available. Add items in Stores first.</p>';
+        return;
+    }
+
+    picker.innerHTML = recipePantryItemsCache.map(item => {
+        const selected = selectedPantryIngredients.get(String(item.pantryRowId));
+        const selectedQty = selected?.quantity || 0;
+        const remaining = Math.max(0, Number(item.quantity) - Number(selectedQty));
+        const maxValue = Math.max(1, remaining);
+
+        return `
+            <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #eee; padding: 8px 4px;">
+                <div style="flex: 1;">
+                    <strong>${item.name}</strong>
+                    <div style="font-size: 12px; color: #666;">Available: ${item.quantity} ${item.unit}${selectedQty > 0 ? ` • Selected: ${selectedQty}` : ''}</div>
+                </div>
+                <input id="recipe-pantry-qty-${item.pantryRowId}" type="number" min="1" max="${maxValue}" value="1" style="width: 70px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;" ${remaining === 0 ? 'disabled' : ''}>
+                <button type="button" onclick="addPantryIngredientToRecipe(${item.pantryRowId})" style="background-color: #2196F3; color: white; padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer;" ${remaining === 0 ? 'disabled' : ''}>Use in Recipe</button>
+            </div>
+        `;
+    }).join('');
+}
+
+async function loadRecipePantryPicker() {
+    const picker = document.getElementById('recipePantryPicker');
+    if (!picker) {
+        return;
+    }
+
+    picker.innerHTML = '<p style="margin: 0; color: #666;">Loading pantry items...</p>';
+
+    try {
+        recipePantryItemsCache = await fetchUserPantryItemsForRecipeForm();
+        renderRecipePantryPicker();
+    } catch (error) {
+        console.error('Failed to load pantry picker for recipe form:', error);
+        picker.innerHTML = '<p style="margin: 0; color: #d32f2f;">Failed to load pantry items.</p>';
+    }
+}
+
+function addPantryIngredientToRecipe(pantryRowId) {
+    const pantryItem = recipePantryItemsCache.find(item => String(item.pantryRowId) === String(pantryRowId));
+    if (!pantryItem) {
+        alert('Pantry item not found. Please reload and try again.');
+        return;
+    }
+
+    const qtyInput = document.getElementById(`recipe-pantry-qty-${pantryRowId}`);
+    const requestedQty = Number.parseFloat(qtyInput?.value || '1');
+    if (!Number.isFinite(requestedQty) || requestedQty <= 0) {
+        alert('Enter a valid quantity greater than 0.');
+        return;
+    }
+
+    const currentSelected = selectedPantryIngredients.get(String(pantryRowId));
+    const alreadySelectedQty = Number(currentSelected?.quantity || 0);
+    const nextSelectedQty = alreadySelectedQty + requestedQty;
+    if (nextSelectedQty > Number(pantryItem.quantity)) {
+        alert(`You only have ${pantryItem.quantity} ${pantryItem.unit} available in your pantry.`);
+        return;
+    }
+
+    selectedPantryIngredients.set(String(pantryRowId), {
+        pantryRowId: pantryItem.pantryRowId,
+        itemId: pantryItem.itemId,
+        quantity: nextSelectedQty,
+        unit: pantryItem.unit,
+        name: pantryItem.name
+    });
+
+    const ingredientsTextarea = document.getElementById('recipeFormIngredients');
+    if (ingredientsTextarea) {
+        const line = `${requestedQty} ${pantryItem.unit} ${pantryItem.name}`.replace(/\s+/g, ' ').trim();
+        const currentText = ingredientsTextarea.value.trim();
+        ingredientsTextarea.value = currentText ? `${currentText}\n${line}` : line;
+    }
+
+    renderRecipePantryPicker();
+}
+
+function resetRecipePantrySelection() {
+    selectedPantryIngredients.clear();
+}
+
+async function consumeSelectedPantryIngredients(userId) {
+    if (selectedPantryIngredients.size === 0) {
+        return;
+    }
+
+    const latestPantryItems = await fetchUserPantryItemsForRecipeForm();
+    const latestByRowId = new Map(latestPantryItems.map(item => [String(item.pantryRowId), item]));
+
+    for (const selection of selectedPantryIngredients.values()) {
+        const pantryRow = latestByRowId.get(String(selection.pantryRowId));
+        if (!pantryRow) {
+            throw new Error(`Pantry item "${selection.name}" was not found anymore.`);
+        }
+
+        const requested = Number(selection.quantity || 0);
+        const available = Number(pantryRow.quantity || 0);
+        if (requested > available) {
+            throw new Error(`Not enough ${selection.name} in pantry. Requested ${requested}, available ${available}.`);
+        }
+
+        const remaining = available - requested;
+        if (remaining <= 0) {
+            await ApiService.delete(API_CONFIG.ENDPOINTS.REMOVE_PANTRY_ITEM + pantryRow.pantryRowId);
+        } else {
+            await ApiService.put(API_CONFIG.ENDPOINTS.REMOVE_PANTRY_ITEM + pantryRow.pantryRowId, {
+                quantity: remaining,
+                userId,
+                itemId: pantryRow.itemId
+            });
+        }
+    }
+}
+
 function isRecipeOwnedByUser(recipe, user) {
     if (!recipe || !user) {
         return false;
@@ -433,6 +684,28 @@ function isRecipeOwnedByUser(recipe, user) {
     const currentUsername = (user.username || user.name || '').toString().trim().toLowerCase();
 
     return !!recipeOwnerName && !!currentUsername && recipeOwnerName === currentUsername;
+}
+
+function isCommentOwnedByUser(comment, user) {
+    if (!comment || !user) {
+        return false;
+    }
+
+    const commentUserId = comment.user_id ?? comment.userId ?? comment.author_id ?? comment.authorId;
+    const currentUserId = user.id ?? user.userId;
+
+    if (commentUserId !== undefined && currentUserId !== undefined && String(commentUserId) === String(currentUserId)) {
+        return true;
+    }
+
+    const commentUsername = (comment.username || comment.user_name || comment.author || comment.created_by || '').toString().trim().toLowerCase();
+    const currentUsername = (user.username || user.name || '').toString().trim().toLowerCase();
+
+    return !!commentUsername && !!currentUsername && commentUsername === currentUsername;
+}
+
+function getCommentId(comment) {
+    return comment.id ?? comment.comment_id ?? comment.commentId;
 }
 
 // Show recipe detail in popup
@@ -599,6 +872,9 @@ async function showRecipeDetail(recipeId) {
         
         // Show/hide add comment form
         const addCommentForm = document.getElementById('addCommentForm');
+        const commentSubmitBtn = document.getElementById('commentSubmitBtn');
+        const commentRatingEl = document.getElementById('commentRating');
+        const commentTextEl = document.getElementById('commentText');
         if (addCommentForm) {
             if (user && user.role === 'user') {
                 addCommentForm.style.display = 'block';
@@ -626,6 +902,36 @@ async function showRecipeDetail(recipeId) {
             `).join('');
         } else if (commentsList) {
             commentsList.innerHTML = '<p>No comments yet. Be the first to leave a review!</p>';
+        }
+
+        currentUserCommentId = null;
+        if (user && user.role === 'user' && comments.length > 0) {
+            const currentUserComment = comments.find(comment => isCommentOwnedByUser(comment, user));
+            if (currentUserComment) {
+                currentUserCommentId = getCommentId(currentUserComment);
+                if (commentRatingEl) {
+                    const safeRating = Math.max(1, Math.min(5, Number(currentUserComment.rating) || 5));
+                    commentRatingEl.value = String(safeRating);
+                }
+                if (commentTextEl) {
+                    commentTextEl.value = currentUserComment.comment_text || currentUserComment.text || currentUserComment.comment || '';
+                }
+                if (commentSubmitBtn) {
+                    commentSubmitBtn.textContent = 'Update Review';
+                }
+            } else {
+                if (commentRatingEl) {
+                    commentRatingEl.value = '5';
+                }
+                if (commentTextEl) {
+                    commentTextEl.value = '';
+                }
+                if (commentSubmitBtn) {
+                    commentSubmitBtn.textContent = 'Submit Review';
+                }
+            }
+        } else if (commentSubmitBtn) {
+            commentSubmitBtn.textContent = 'Submit Review';
         }
         
         // Show the popup
@@ -712,12 +1018,15 @@ function showCreateRecipeForm() {
     document.getElementById('recipeForm').reset();
     document.getElementById('recipeFormId').value = '';
     document.getElementById('pantryCheckResult').style.display = 'none';
+    resetRecipePantrySelection();
+    loadRecipePantryPicker();
     document.getElementById('recipeFormPopup').style.display = 'flex';
 }
 
 // Close recipe form
 function closeRecipeForm() {
     document.getElementById('recipeFormPopup').style.display = 'none';
+    resetRecipePantrySelection();
 }
 
 // Close recipe popup
@@ -725,6 +1034,7 @@ function closeRecipePopup() {
     document.getElementById('popup').style.display = 'none';
     currentRecipeId = null;
     currentRecipeData = null;
+    currentUserCommentId = null;
 }
 
 // Edit current recipe
@@ -753,6 +1063,8 @@ function editRecipe() {
 
     // instructions is often a plain newline-delimited string from the backend
     document.getElementById('recipeFormInstructions').value = currentRecipeData.instructions || '';
+    resetRecipePantrySelection();
+    loadRecipePantryPicker();
     
     // Close popup and show form
     closeRecipePopup();
@@ -962,13 +1274,27 @@ async function submitRecipe(event) {
             // Create new recipe
             const createdRecipe = await RecipeService.createRecipe(recipeData);
             const createdId = createdRecipe?.id || createdRecipe?.recipe?.id || createdRecipe?.data?.id;
+
+            let pantryConsumptionWarning = null;
+            try {
+                await consumeSelectedPantryIngredients(user.id);
+            } catch (consumeError) {
+                console.error('Recipe created but pantry deduction failed:', consumeError);
+                pantryConsumptionWarning = consumeError.message || 'Could not deduct pantry ingredients.';
+            }
+
             saveRecipeIngredientsToCache({
                 recipeId: createdId,
                 userId: user.id,
                 recipeName: name,
                 ingredientsText: ingredientsPlainText
             });
-            alert('Recipe created successfully!');
+
+            if (pantryConsumptionWarning) {
+                alert(`Recipe created successfully, but pantry inventory was not fully updated: ${pantryConsumptionWarning}`);
+            } else {
+                alert('Recipe created successfully! Pantry items used for this recipe were deducted.');
+            }
         }
         
         closeRecipeForm();
@@ -991,6 +1317,13 @@ async function submitComment(event) {
     
     const rating = parseInt(document.getElementById('commentRating').value, 10);
     const comment = document.getElementById('commentText').value.trim();
+    const user = AuthService.getUser();
+    const userId = user?.id ?? user?.userId;
+
+    if (!userId) {
+        alert('You must be logged in to submit a review.');
+        return;
+    }
 
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
         alert('Please select a valid rating between 1 and 5.');
@@ -1003,12 +1336,20 @@ async function submitComment(event) {
     }
     
     try {
-        await RecipeService.addComment(currentRecipeId, rating, comment);
-        alert('Review submitted successfully!');
+        await RecipeService.addOrUpdateRating(currentRecipeId, userId, rating);
+
+        if (currentUserCommentId !== null && currentUserCommentId !== undefined) {
+            await RecipeService.updateComment(currentUserCommentId, currentRecipeId, userId, comment);
+            alert('Review updated successfully!');
+        } else {
+            await RecipeService.addComment(currentRecipeId, userId, comment);
+            alert('Review submitted successfully!');
+        }
         
         // Reset form
         document.getElementById('commentRating').value = '5';
         document.getElementById('commentText').value = '';
+        currentUserCommentId = null;
         
         // Reload recipe to show new comment
         showRecipeDetail(currentRecipeId);
