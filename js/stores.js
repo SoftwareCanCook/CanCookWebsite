@@ -120,7 +120,12 @@ async function loadStoreItems(storeId, storeName) {
                 `;
                 
                 if (stock > 0) {
-                    tableHTML += `<button onclick="addItemToPantry(${item.id}, '${name.replace(/'/g, "\\'")}', '${unit.replace(/'/g, "\\'")}', ${stock})" style="background-color: #4CAF50; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Add to Pantry</button>`;
+                    tableHTML += `
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <input id="qty-${item.id}" type="number" min="1" max="${stock}" value="1" style="width: 70px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;" />
+                            <button onclick="addItemToPantry(${item.id}, '${name.replace(/'/g, "\\'")}', '${unit.replace(/'/g, "\\'")}', ${stock})" style="background-color: #4CAF50; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Add to Pantry</button>
+                        </div>
+                    `;
                 } else {
                     tableHTML += `<button disabled style="background-color: #999; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: not-allowed; font-size: 12px;">Out of Stock</button>`;
                 }
@@ -162,7 +167,7 @@ function closeStorePopup() {
 // Add item to pantry from store
 async function addItemToPantry(itemId, itemName, unit, stock) {
     const qtyInput = document.getElementById(`qty-${itemId}`);
-    const quantity = parseInt(qtyInput.value) || 1;
+    const quantity = parseInt(qtyInput?.value, 10) || 1;
     
     if (quantity > stock) {
         alert(`Only ${stock} ${unit} available in stock`);
