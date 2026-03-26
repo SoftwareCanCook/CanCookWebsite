@@ -39,8 +39,7 @@ class RecipeService {
             rating: numericRating
         };
     }
-    
-    // Get all recipes
+
     static async getAllRecipes() {
         try {
             return await ApiService.get(API_CONFIG.ENDPOINTS.RECIPES);
@@ -49,8 +48,7 @@ class RecipeService {
             return [];
         }
     }
-    
-    // Get user's recipes
+
     static async getUserRecipes() {
         try {
             return await ApiService.get(API_CONFIG.ENDPOINTS.USER_RECIPES);
@@ -59,8 +57,7 @@ class RecipeService {
             return [];
         }
     }
-    
-    // Get recipe by ID
+
     static async getRecipeById(id) {
         try {
             return await ApiService.get(API_CONFIG.ENDPOINTS.RECIPE_BY_ID + id);
@@ -69,8 +66,7 @@ class RecipeService {
             throw error;
         }
     }
-    
-    // Create new recipe
+
     static async createRecipe(recipeData) {
         try {
             return await ApiService.post(API_CONFIG.ENDPOINTS.CREATE_RECIPE, recipeData);
@@ -79,8 +75,7 @@ class RecipeService {
             throw error;
         }
     }
-    
-    // Update existing recipe
+
     static async updateRecipe(id, recipeData) {
         try {
             return await ApiService.put(API_CONFIG.ENDPOINTS.UPDATE_RECIPE + id, recipeData);
@@ -89,8 +84,7 @@ class RecipeService {
             throw error;
         }
     }
-    
-    // Delete recipe
+
     static async deleteRecipe(id) {
         try {
             return await ApiService.delete(API_CONFIG.ENDPOINTS.DELETE_RECIPE + id);
@@ -99,8 +93,7 @@ class RecipeService {
             throw error;
         }
     }
-    
-    // Search recipes
+
     static async searchRecipes(query) {
         try {
             return await ApiService.get(API_CONFIG.ENDPOINTS.SEARCH_RECIPES, { q: query });
@@ -109,8 +102,7 @@ class RecipeService {
             return [];
         }
     }
-    
-    // Sort recipes
+
     static async sortRecipes(sortBy = 'name') {
         try {
             return await ApiService.get(API_CONFIG.ENDPOINTS.SORT_RECIPES, { sortBy });
@@ -119,8 +111,7 @@ class RecipeService {
             return [];
         }
     }
-    
-    // Add comment to recipe
+
     static async addComment(recipeId, userId, comment) {
         const payload = this.buildCommentPayload(recipeId, userId, comment);
 
@@ -133,7 +124,6 @@ class RecipeService {
         } catch (error) {
             console.error('Failed to add comment (primary payload):', error);
 
-            // Retry with minimal snake_case payload for stricter backends
             try {
                 return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_COMMENT, {
                     recipe_id: payload.recipe_id,
@@ -147,7 +137,6 @@ class RecipeService {
         }
     }
 
-    // Update existing comment on recipe
     static async updateComment(commentId, recipeId, userId, comment) {
         const numericCommentId = Number(commentId);
         const payload = this.buildCommentPayload(recipeId, userId, comment, numericCommentId);
@@ -201,44 +190,118 @@ class RecipeService {
 }
 
 // Load and display all recipes
+let allPublicRecipesCache = [];
+
+function renderAllRecipes(recipes, emptyMessage = 'No public recipes available yet. Create the first one!') {
+    const container = document.getElementById('allRecipesContainer');
+    if (!container) {
+        return;
+    }
+
+    if (recipes.length > 0) {
+        container.innerHTML = recipes.map(recipe => `
+            <div class="card" onclick="showRecipeDetail(${recipe.id})">
+                <img src="${recipe.image_url || recipe.imageUrl || 'apple.jpg'}" alt="${recipe.name}">
+                <div class="overlay-text">
+                    <a href="#popup">${recipe.name}</a>
+                    <div style="font-size: 12px; margin-top: 5px;">by ${recipe.username || recipe.created_by || 'Unknown'}</div>
+                    <div style="font-size: 12px;">★ ${recipe.average_rating || recipe.averageRating || '0.0'}</div>
+                </div>
+            </div>
+        `).join('');
+        return;
+    }
+
+    container.innerHTML = `<p style="padding: 20px;">${emptyMessage}</p>`;
+}
+
+async function ensureAllPublicRecipesCache() {
+    if (Array.isArray(allPublicRecipesCache) && allPublicRecipesCache.length > 0) {
+        return allPublicRecipesCache;
+    }
+
+    const response = await RecipeService.getAllRecipes();
+    let recipes = response.rows || response.data || response || [];
+    recipes = Array.isArray(recipes) ? recipes : [];
+
+    allPublicRecipesCache = recipes.filter(recipe => {
+        const isPublic = recipe.is_public !== undefined ? recipe.is_public : recipe.isPublic;
+        return isPublic === true || isPublic === 1 || isPublic === '1' || isPublic === 'true';
+    });
+
+    return allPublicRecipesCache;
+}
+
+function matchesRecipeQuery(recipe, query) {
+    const name = (recipe.name || '').toString().toLowerCase();
+    const ingredientsSource = recipe.ingredients
+        ?? recipe.ingredients_text
+        ?? recipe.ingredient_list
+        ?? recipe.ingredientList
+        ?? recipe.recipe_ingredients
+        ?? recipe.recipeIngredients
+        ?? [];
+
+    const ingredientLines = normalizeRecipeList(ingredientsSource).map(ing => {
+        if (typeof ing === 'string') {
+            return ing;
+        }
+        if (ing && typeof ing === 'object') {
+            return [
+                ing.name,
+                ing.item_name,
+                ing.ingredient_name,
+                ing.itemName
+            ].filter(Boolean).join(' ');
+        }
+        return String(ing || '');
+    });
+
+    const ingredientsText = ingredientLines.join(' ').toLowerCase();
+    return name.includes(query) || ingredientsText.includes(query);
+}
+
+function filterRecipesByQuery(recipes, query) {
+    if (!Array.isArray(recipes)) {
+        return [];
+    }
+
+    const normalizedQuery = String(query || '').trim().toLowerCase();
+    if (!normalizedQuery) {
+        return recipes;
+    }
+
+    return recipes.filter(recipe => {
+        const name = (recipe.name || '').toString().toLowerCase();
+        const ingredientsText = normalizeRecipeList(
+            recipe.ingredients
+            ?? recipe.ingredients_text
+            ?? recipe.ingredient_list
+            ?? recipe.ingredientList
+            ?? recipe.recipe_ingredients
+            ?? recipe.recipeIngredients
+            ?? []
+        ).join(' ').toLowerCase();
+
+        return name.includes(normalizedQuery) || ingredientsText.includes(normalizedQuery);
+    });
+}
+
 async function loadAllRecipes() {
     try {
         const response = await RecipeService.getAllRecipes();
         console.log('All recipes response:', response);
-        
-        // Handle different response structures
+
         let recipes = response.rows || response.data || response || [];
-        
-        // Filter to show only public recipes in the carousel
-        // Private recipes should only be visible to their owner in "Your Recipes" section
-        const currentUser = AuthService.getUser();
+        recipes = Array.isArray(recipes) ? recipes : [];
+
         recipes = recipes.filter(recipe => {
             const isPublic = recipe.is_public !== undefined ? recipe.is_public : recipe.isPublic;
-            // Show if public, OR if it's the current user's recipe (handled in user recipes section)
-            return isPublic === true || isPublic === 1 || isPublic === '1';
+            return isPublic === true || isPublic === 1 || isPublic === '1' || isPublic === 'true';
         });
-        
-        // Randomize recipes for carousel (as per requirements)
-        const shuffled = recipes.sort(() => 0.5 - Math.random());
-        
-        const container = document.getElementById('allRecipesContainer');
-        
-        if (container) {
-            if (shuffled.length > 0) {
-                container.innerHTML = shuffled.map(recipe => `
-                    <div class="card" onclick="showRecipeDetail(${recipe.id})">
-                        <img src="${recipe.image_url || recipe.imageUrl || 'apple.jpg'}" alt="${recipe.name}">
-                        <div class="overlay-text">
-                            <a href="#popup">${recipe.name}</a>
-                            <div style="font-size: 12px; margin-top: 5px;">by ${recipe.username || recipe.created_by || 'Unknown'}</div>
-                            <div style="font-size: 12px;">★ ${recipe.average_rating || recipe.averageRating || '0.0'}</div>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                container.innerHTML = '<p style="padding: 20px;">No public recipes available yet. Create the first one!</p>';
-            }
-        }
+
+        allPublicRecipesCache = [...recipes];
+        renderAllRecipes(allPublicRecipesCache);
     } catch (error) {
         console.error('Failed to load all recipes:', error);
         const container = document.getElementById('allRecipesContainer');
@@ -249,6 +312,44 @@ async function loadAllRecipes() {
 }
 
 // Load and display user's recipes
+let userRecipesCache = [];
+
+function renderUserRecipes(recipes, options = {}) {
+    const { hideHeaderWhenEmpty = true, emptyMessage = '' } = options;
+    const container = document.getElementById('userRecipesContainer');
+    const header = document.getElementById('yourRecipesHeader');
+    const userSearchForm = document.getElementById('userSearchForm');
+
+    if (!container) {
+        return;
+    }
+
+    if (recipes.length > 0) {
+        if (header) header.style.display = 'block';
+        if (userSearchForm) userSearchForm.style.display = 'flex';
+        container.innerHTML = recipes.map(recipe => `
+            <div class="card" onclick="showRecipeDetail(${recipe.id})">
+                <img src="${recipe.image_url || recipe.imageUrl || recipe.image || 'apple.jpg'}" alt="${recipe.name}">
+                <div class="overlay-text">
+                    <a href="#popup">${recipe.name}</a>
+                    <div style="font-size: 12px; margin-top: 5px;">${(recipe.is_public !== undefined ? recipe.is_public : recipe.isPublic) ? 'Public' : 'Private'}</div>
+                </div>
+            </div>
+        `).join('');
+        return;
+    }
+
+    if (hideHeaderWhenEmpty) {
+        if (header) header.style.display = 'none';
+        if (userSearchForm) userSearchForm.style.display = 'none';
+        container.innerHTML = '';
+    } else {
+        if (header) header.style.display = 'block';
+        if (userSearchForm) userSearchForm.style.display = 'flex';
+        container.innerHTML = emptyMessage || '<p style="padding: 20px;">No matching recipes found.</p>';
+    }
+}
+
 async function loadUserRecipes() {
     if (!AuthService.isAuthenticated()) {
         return;
@@ -294,21 +395,8 @@ async function loadUserRecipes() {
             recipes = allRecipesArray.filter(isOwnedByUser);
         }
 
-        if (recipes.length > 0) {
-            if (header) header.style.display = 'block';
-            container.innerHTML = recipes.map(recipe => `
-                <div class="card" onclick="showRecipeDetail(${recipe.id})">
-                    <img src="${recipe.image_url || recipe.imageUrl || recipe.image || 'apple.jpg'}" alt="${recipe.name}">
-                    <div class="overlay-text">
-                        <a href="#popup">${recipe.name}</a>
-                        <div style="font-size: 12px; margin-top: 5px;">${(recipe.is_public !== undefined ? recipe.is_public : recipe.isPublic) ? 'Public' : 'Private'}</div>
-                    </div>
-                </div>
-            `).join('');
-        } else {
-            if (header) header.style.display = 'none';
-            container.innerHTML = '';
-        }
+        userRecipesCache = recipes;
+        renderUserRecipes(recipes);
     } catch (error) {
         console.error('Failed to load user recipes:', error);
     }
@@ -944,42 +1032,70 @@ async function showRecipeDetail(recipeId) {
 
 // Handle search form
 async function handleSearch(event) {
-    event.preventDefault();
-    const searchQuery = document.getElementById('site-search').value;
-    
-    if (searchQuery.trim()) {
-        try {
-            const response = await RecipeService.searchRecipes(searchQuery);
-            const recipes = response.rows || response.data || response || [];
-            const container = document.getElementById('allRecipesContainer');
-            
-            if (container) {
-                if (recipes.length > 0) {
-                    container.innerHTML = recipes.map(recipe => `
-                        <div class="card" onclick="showRecipeDetail(${recipe.id})">
-                            <img src="${recipe.image_url || recipe.imageUrl || 'apple.jpg'}" alt="${recipe.name}">
-                            <div class="overlay-text">
-                                <a href="#popup">${recipe.name}</a>
-                                <div style="font-size: 12px; margin-top: 5px;">by ${recipe.username || 'Unknown'}</div>
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    container.innerHTML = '<p style="padding: 20px;">No recipes found matching your search.</p>';
-                }
-            }
-        } catch (error) {
-            console.error('Search failed:', error);
-            alert('Search failed: ' + error.message);
-        }
+    if (event) {
+        event.preventDefault();
+    }
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = searchForm ? searchForm.querySelector('#site-search') : null;
+    const searchQuery = (searchInput?.value || '').trim();
+
+    if (!searchQuery) {
+        renderAllRecipes(allPublicRecipesCache);
+        return;
+    }
+
+    try {
+        await ensureAllPublicRecipesCache();
+
+        const filtered = filterRecipesByQuery(allPublicRecipesCache, searchQuery);
+        renderAllRecipes(filtered, 'No recipes found matching your search.');
+    } catch (error) {
+        console.error('All recipes search failed:', error);
+        renderAllRecipes([], 'Search failed. Please try again.');
     }
 }
 
 // Clear search and reload all recipes
 function clearSearch() {
-    document.getElementById('site-search').value = '';
-    document.getElementById('sortBy').value = '';
-    loadAllRecipes();
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = searchForm ? searchForm.querySelector('#site-search') : null;
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    const sortBy = document.getElementById('sortBy');
+    if (sortBy) {
+        sortBy.value = '';
+    }
+
+    renderAllRecipes(allPublicRecipesCache);
+}
+
+function clearUserRecipesSearch() {
+    const input = document.getElementById('user-recipes-search');
+    if (input) {
+        input.value = '';
+    }
+    renderUserRecipes(userRecipesCache);
+}
+
+function handleUserRecipesSearch(event) {
+    if (event) {
+        event.preventDefault();
+    }
+
+    const query = (document.getElementById('user-recipes-search')?.value || '').trim().toLowerCase();
+    if (!query) {
+        renderUserRecipes(userRecipesCache);
+        return;
+    }
+
+    const filtered = filterRecipesByQuery(userRecipesCache, query);
+
+    renderUserRecipes(filtered, {
+        hideHeaderWhenEmpty: false,
+        emptyMessage: '<p style="padding: 20px;">No your-recipe results found.</p>'
+    });
 }
 
 // Handle sort dropdown
@@ -1361,23 +1477,39 @@ async function submitComment(event) {
 
 // Initialize recipes page
 document.addEventListener('DOMContentLoaded', () => {
-    if (window.location.pathname.includes('index.html') || window.location.pathname === '/' || window.location.pathname === '') {
+    const allRecipesContainer = document.getElementById('allRecipesContainer');
+    const searchForm = document.getElementById('searchForm');
+    const userSearchForm = document.getElementById('userSearchForm');
+    const siteSearchInput = document.getElementById('site-search');
+    const userRecipesSearchInput = document.getElementById('user-recipes-search');
+
+    if (allRecipesContainer) {
         // Load recipes
         loadAllRecipes();
         loadUserRecipes();
-        
+
         // Show create button for logged-in users
         const user = AuthService.getUser();
         const createBtn = document.getElementById('createRecipeBtn');
         if (user && user.role === 'user' && createBtn) {
             createBtn.style.display = 'inline-block';
         }
-        
-        // Attach search handler
-        const searchForm = document.getElementById('searchForm');
-        if (searchForm) {
-            searchForm.addEventListener('submit', handleSearch);
-        }
+    }
+
+    if (searchForm) {
+        searchForm.addEventListener('submit', handleSearch);
+    }
+
+    if (siteSearchInput) {
+        siteSearchInput.addEventListener('input', handleSearch);
+    }
+
+    if (userSearchForm) {
+        userSearchForm.addEventListener('submit', handleUserRecipesSearch);
+    }
+
+    if (userRecipesSearchInput) {
+        userRecipesSearchInput.addEventListener('input', handleUserRecipesSearch);
     }
 });
 

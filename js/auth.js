@@ -279,7 +279,7 @@ function updateNavbar() {
                 </div>
                 <search>
                     <form action="/search" method="get">
-                        <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
+                        <input type="search" id="navbar-site-search" name="q" placeholder="Search" aria-label="Search for recipes">
                     </form>
                 </search>
             `;
@@ -316,7 +316,7 @@ function updateNavbar() {
                 </div>
                 <search>
                     <form action="/search" method="get">
-                        <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
+                        <input type="search" id="navbar-site-search" name="q" placeholder="Search" aria-label="Search for recipes">
                     </form>
                 </search>
             `;
@@ -334,7 +334,7 @@ function updateNavbar() {
         </div>
         <search>
             <form action="/search" method="get">
-                <input type="search" id="site-search" name="q" placeholder="Search" aria-label="Search for recipes">
+                <input type="search" id="navbar-site-search" name="q" placeholder="Search" aria-label="Search for recipes">
             </form>
         </search>
     `;
