@@ -1,6 +1,6 @@
 // Authentication Service
 class AuthService {
-    
+
     // Login user
     static async login(username, password) {
         try {
@@ -8,24 +8,24 @@ class AuthService {
                 username,
                 password
             });
-            
+
             console.log('Login response:', response);
             console.log('User data from backend:', response.user);
-            
+
             // Store token and user info
             if (response.token) {
                 localStorage.setItem('authToken', response.token);
                 localStorage.setItem('user', JSON.stringify(response.user));
                 console.log('Stored user in localStorage:', localStorage.getItem('user'));
             }
-            
+
             return response;
         } catch (error) {
             console.error('Login failed:', error);
             throw error;
         }
     }
-    
+
     // Sign up new user
     static async signup(email, username, password) {
         try {
@@ -34,32 +34,32 @@ class AuthService {
                 username,
                 password
             });
-            
+
             // Automatically log in after signup
             if (response.token) {
                 localStorage.setItem('authToken', response.token);
                 localStorage.setItem('user', JSON.stringify(response.user));
             }
-            
+
             return response;
         } catch (error) {
             console.error('Signup failed:', error);
             throw error;
         }
     }
-    
+
     // Logout user
     static logout() {
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
         window.location.href = 'login.html';
     }
-    
+
     // Get authentication token
     static getToken() {
         return localStorage.getItem('authToken');
     }
-    
+
     // Get current user
     static getUser() {
         const user = localStorage.getItem('user');
@@ -67,12 +67,12 @@ class AuthService {
         console.log('Getting user from localStorage:', parsedUser);
         return parsedUser;
     }
-    
+
     // Check if user is authenticated
     static isAuthenticated() {
         return !!this.getToken();
     }
-    
+
     // Require authentication (redirect if not logged in)
     static requireAuth() {
         if (!this.isAuthenticated()) {
@@ -81,13 +81,13 @@ class AuthService {
         }
         return true;
     }
-    
+
     // Require specific role (redirect if wrong role)
     static requireRole(allowedRoles) {
         if (!this.requireAuth()) {
             return false;
         }
-        
+
         const user = this.getUser();
         if (!user || !allowedRoles.includes(user.role)) {
             alert('Access denied. You do not have permission to view this page.');
@@ -116,19 +116,19 @@ class AuthService {
 // Handle login form submission
 async function handleLogin(event) {
     event.preventDefault();
-    
+
     const username = document.getElementById('userUsername').value;
     const password = document.getElementById('userPassword').value;
-    
+
     try {
         const response = await AuthService.login(username, password);
-        
+
         // Check if the account is locked
         if (response.user && response.user.status === 'locked') {
             alert('Your account has been locked due to too many failed login attempts. Please contact an administrator to unlock your account.');
             return;
         }
-        
+
         // Redirect to the correct page after login
         // If user, then redirect to index.html
         // If admin, then redirect to admin.html
@@ -173,12 +173,12 @@ function validatePassword(password) {
             message: 'Password must be exactly 12 characters long'
         };
     }
-    
+
     const hasUppercase = /[A-Z]/.test(password);
     const hasLowercase = /[a-z]/.test(password);
     const hasNumeric = /[0-9]/.test(password);
     const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
+
     if (!hasUppercase) {
         return {
             valid: false,
@@ -203,25 +203,25 @@ function validatePassword(password) {
             message: 'Password must contain at least 1 symbol (!@#$%^&*()etc)'
         };
     }
-    
+
     return { valid: true };
 }
 
 // Handle signup form submission
 async function handleSignup(event) {
     event.preventDefault();
-    
+
     const email = document.getElementById('email').value;
     const username = document.getElementById('userUsername').value;
     const password = document.getElementById('userPassword').value;
-    
+
     const usernameError = document.getElementById('usernameError');
     const passwordError = document.getElementById('passwordError');
-    
+
     // Reset error messages
     if (usernameError) usernameError.style.display = 'none';
     if (passwordError) passwordError.style.display = 'none';
-    
+
     // Validate username
     const usernameValidation = validateUsername(username);
     if (!usernameValidation.valid) {
@@ -232,7 +232,7 @@ async function handleSignup(event) {
         alert(usernameValidation.message);
         return;
     }
-    
+
     // Validate password
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
@@ -243,7 +243,7 @@ async function handleSignup(event) {
         alert(passwordValidation.message);
         return;
     }
-    
+
     try {
         await AuthService.signup(email, username, password);
         alert('Account created successfully! Your account is pending admin approval.');
@@ -277,11 +277,6 @@ function updateNavbar() {
                     <span style="color: white; margin-right: 10px;">${welcomeMessage}</span>
                     <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
                 </div>
-                <search>
-                    <form action="/search" method="get">
-                        <input type="search" id="navbar-site-search" name="q" placeholder="Search" aria-label="Search for recipes">
-                    </form>
-                </search>
             `;
         } else if (user.role == 'admin') {
             // The user is an admin, only show logout and admin.html
@@ -314,11 +309,6 @@ function updateNavbar() {
                     <span style="color: white; margin-right: 10px;">${welcomeMessage}</span>
                     <a href="#" onclick="AuthService.logout(); return false;">Logout</a>
                 </div>
-                <search>
-                    <form action="/search" method="get">
-                        <input type="search" id="navbar-site-search" name="q" placeholder="Search" aria-label="Search for recipes">
-                    </form>
-                </search>
             `;
         }
         return;
@@ -332,11 +322,6 @@ function updateNavbar() {
             <a href="stores.html">Stores</a>
             <a href="login.html">Login</a>
         </div>
-        <search>
-            <form action="/search" method="get">
-                <input type="search" id="navbar-site-search" name="q" placeholder="Search" aria-label="Search for recipes">
-            </form>
-        </search>
     `;
 }
 
