@@ -272,6 +272,12 @@ footer {
         border-radius: 12px;
     }
 
+    .recipe-image img {
+        height: 300px;
+        width: 300px;
+        object-fit: cover;
+    }
+
     .recipe-header {
         text-align: center;
     }

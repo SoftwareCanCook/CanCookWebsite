@@ -2040,16 +2040,20 @@ async function showRecipeDetail(recipeId) {
             // Sort comments by most recent first
             visibleComments.sort((a, b) => new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt));
             
+            // Debug: Log comment fields
+            console.log('Sample comment object:', visibleComments[0]);
+            console.log('All comment fields:', Object.keys(visibleComments[0]));
+            
             commentsList.innerHTML = visibleComments.map(comment => {
                 const commentRating = Math.max(0, Math.min(5, Number(comment?.rating) || 0));
                 return `
                 <div class="comment">
                     <div class="comment-header">
-                        <strong>${comment.username || 'Anonymous'}</strong>
+                        <strong>${comment.username || comment.user_name || 'Anonymous'}</strong>
                         <span class="stars">${'★'.repeat(commentRating)}${'☆'.repeat(5 - commentRating)}</span>
                         <span style="color: #666; font-size: 12px; margin-left: 10px;">${new Date(comment.created_at || comment.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <p>${comment.comment_text || comment.text || comment.comment}</p>
+                    <p>${comment.commentText || comment.comment_text || comment.text || comment.comment}</p>
                 </div>
             `;
             }).join('');
@@ -2068,7 +2072,7 @@ async function showRecipeDetail(recipeId) {
                     commentRatingEl.value = String(safeRating);
                 }
                 if (commentTextEl) {
-                    commentTextEl.value = currentUserComment.comment_text || currentUserComment.text || currentUserComment.comment || '';
+                    commentTextEl.value = currentUserComment.commentText || currentUserComment.comment_text || currentUserComment.text || currentUserComment.comment || '';
                 }
                 if (commentSubmitBtn) {
                     commentSubmitBtn.textContent = 'Update Review';
