@@ -1395,6 +1395,226 @@ async function addPublicRecipeToMyRecipes() {
     }
 }
 
+// Build a lookup map of itemId to item metadata from all stores
+async function buildItemLookup() {
+    const itemLookup = {};
+    
+    try {
+        const storesResponse = await ApiService.get(API_CONFIG.ENDPOINTS.STORES);
+        const stores = storesResponse.rows || storesResponse.data || storesResponse || [];
+        
+        for (const store of stores) {
+            const storeId = store.id || store.storeId;
+            if (!storeId) continue;
+            
+            try {
+                const itemsResponse = await ApiService.get(`${API_CONFIG.ENDPOINTS.STORE_ITEMS}${storeId}/items`);
+                const items = itemsResponse.rows || itemsResponse.data || itemsResponse || [];
+                
+                for (const item of items) {
+                    const itemId = item.id || item.itemId;
+                    if (itemId && !itemLookup[itemId]) {
+                        itemLookup[itemId] = {
+                            name: item.name || item.itemName || `Item #${itemId}`,
+                            unit: item.unit || item.measurementUnit || 'units',
+                            category: item.category || '',
+                            image: item.image || ''
+                        };
+                    }
+                }
+            } catch (storeError) {
+                console.warn(`Could not fetch items for store ${storeId}:`, storeError);
+            }
+        }
+    } catch (storesError) {
+        console.warn('Could not fetch stores for item lookup:', storesError);
+    }
+    
+    return itemLookup;
+}
+
+// Cook recipe and consume pantry ingredients
+async function cookRecipeAndConsumePantry() {
+    const user = AuthService.getUser();
+    if (!user || user.role !== 'user') {
+        alert('You must be logged in as a user to cook recipes.');
+        return;
+    }
+
+    if (!currentRecipeData || !currentRecipeId) {
+        alert('No recipe selected.');
+        return;
+    }
+
+    try {
+        // Get normalized ingredients from the recipe
+        const ingredientsSource = currentRecipeData?.ingredients
+            ?? currentRecipeData?.ingredients_text
+            ?? currentRecipeData?.ingredient_list
+            ?? currentRecipeData?.ingredientList
+            ?? currentRecipeData?.recipe_ingredients
+            ?? currentRecipeData?.recipeIngredients
+            ?? currentRecipeData?.ingredient
+            ?? [];
+
+        let ingredientTexts = [];
+        if (typeof ingredientsSource === 'string') {
+            ingredientTexts = ingredientsSource.split('\n').map(line => line.trim()).filter(line => line);
+        } else {
+            const normalized = normalizeRecipeList(ingredientsSource);
+            ingredientTexts = normalized.map(ing => {
+                if (typeof ing === 'string') {
+                    return ing;
+                } else {
+                    const quantity = ing.quantityNeeded ?? ing.quantity ?? ing.quantity_needed ?? '';
+                    const unit = ing.measurementUnit ?? ing.unit ?? ing.measurement_unit ?? '';
+                    const name = resolveIngredientName(ing);
+                    return `${quantity} ${unit} ${name}`.trim();
+                }
+            }).filter(text => text);
+        }
+
+        if (ingredientTexts.length === 0) {
+            alert('This recipe has no ingredients.');
+            return;
+        }
+
+        // Fetch user's pantry items
+        const pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY);
+        const pantryItems = pantryResponse.rows || pantryResponse.data || pantryResponse || [];
+        
+        if (!Array.isArray(pantryItems)) {
+            alert('Could not load your pantry. Please try again.');
+            return;
+        }
+
+        // Build item lookup from stores
+        const itemLookup = await buildItemLookup();
+
+        // Enrich pantry items with metadata from stores
+        const enrichedPantryItems = pantryItems.map(row => {
+            const itemId = row.itemId || row.item_id;
+            const meta = itemLookup[itemId] || {};
+            return {
+                pantryRowId: row.id,
+                itemId: itemId,
+                quantity: Number(row.quantity || 0),
+                name: meta.name || row.name || `Item #${itemId}`,
+                unit: meta.unit || row.unit || 'units'
+            };
+        });
+
+        let consumedItems = [];
+        let missingItems = [];
+
+        // Try to match recipe ingredients to pantry items
+        for (const ingredientText of ingredientTexts) {
+            const parsed = parseIngredientLine(ingredientText);
+            const needQuantity = parsed.quantity;
+            const needUnit = parsed.unit;
+            const needName = parsed.ingredientName.toLowerCase();
+
+            // Try to find a matching pantry item
+            let bestMatch = null;
+            let bestScore = 0;
+
+            for (const pantryItem of enrichedPantryItems) {
+                const pantryNameLower = pantryItem.name.toLowerCase();
+                
+                // Simple fuzzy matching
+                let score = 0;
+                if (pantryNameLower === needName) score = 100;
+                else if (pantryNameLower.includes(needName)) score = 50;
+                else if (needName.includes(pantryNameLower)) score = 25;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = pantryItem;
+                }
+            }
+
+            if (!bestMatch) {
+                missingItems.push(ingredientText);
+                continue;
+            }
+
+            const available = bestMatch.quantity;
+            if (available < needQuantity) {
+                missingItems.push(`${ingredientText} (have ${available}${bestMatch.unit}, need ${needQuantity}${needUnit})`);
+                continue;
+            }
+
+            // Mark as consumed
+            consumedItems.push({
+                pantryRowId: bestMatch.pantryRowId,
+                name: bestMatch.name,
+                quantityUsed: needQuantity,
+                availableQuantity: available
+            });
+
+            // Remove from available pool for next ingredient
+            bestMatch.quantity -= needQuantity;
+        }
+
+        // Check if we have missing items
+        if (missingItems.length > 0 && consumedItems.length === 0) {
+            alert(`You're missing ingredients for this recipe:\n${missingItems.join('\n')}\n\nPlease add them to your pantry first.`);
+            return;
+        }
+
+        if (missingItems.length > 0 && consumedItems.length > 0) {
+            const proceed = confirm(`You'll use:\n${consumedItems.map(i => `• ${i.name}`).join('\n')}\n\nBut you're missing:\n${missingItems.join('\n')}\n\nContinue anyway?`);
+            if (!proceed) return;
+        }
+
+        if (consumedItems.length === 0) {
+            alert('Could not match recipe ingredients to your pantry items.');
+            return;
+        }
+
+        // Re-fetch current pantry state before updating
+        const latestPantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY);
+        const latestPantryItems = latestPantryResponse.rows || latestPantryResponse.data || latestPantryResponse || [];
+        const latestPantryMap = new Map(latestPantryItems.map(item => [String(item.id), item]));
+
+        // Remove consumed items from pantry
+        for (const item of consumedItems) {
+            const latestPantryItem = latestPantryMap.get(String(item.pantryRowId));
+            if (!latestPantryItem) {
+                console.warn(`Pantry item ${item.pantryRowId} not found, skipping`);
+                continue;
+            }
+
+            const currentQuantity = Number(latestPantryItem.quantity || 0);
+            const remaining = Math.max(0, currentQuantity - item.quantityUsed);
+            
+            if (remaining <= 0) {
+                // Delete the item if quantity reaches 0 or below
+                await ApiService.delete(API_CONFIG.ENDPOINTS.REMOVE_PANTRY_ITEM + item.pantryRowId);
+            } else {
+                // Update quantity
+                await ApiService.put(API_CONFIG.ENDPOINTS.REMOVE_PANTRY_ITEM + item.pantryRowId, {
+                    quantity: remaining
+                });
+            }
+        }
+
+        // Show success message
+        const usedItemsList = consumedItems.map(i => `• ${i.name}`).join('\n');
+        alert(`Great! Started cooking!\n\nUsed from your pantry:\n${usedItemsList}`);
+
+        // Close recipe popup and refresh pantry if on pantry page
+        closeRecipePopup();
+        if (window.location.pathname.includes('pantry.html') && typeof loadPantryItems === 'function') {
+            await loadPantryItems();
+        }
+
+    } catch (error) {
+        console.error('Error consuming pantry ingredients:', error);
+        alert('Error: ' + (error.message || 'Could not process recipe ingredients. Please try again.'));
+    }
+}
+
 // Show recipe detail in popup
 async function showRecipeDetail(recipeId) {
     try {
