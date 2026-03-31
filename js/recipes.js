@@ -1,7 +1,7 @@
 // Recipe Service
 class RecipeService {
 
-    static buildCommentPayload(recipeId, userId, comment, commentId = null) {
+    static buildCommentPayload(recipeId, userId, comment, commentId = null, rating = null) {
         const numericRecipeId = Number(recipeId);
         const numericUserId = Number(userId);
         const commentText = String(comment || '').trim();
@@ -16,6 +16,10 @@ class RecipeService {
             comment: commentText,
             text: commentText
         };
+
+        if (rating !== null && rating !== undefined) {
+            payload.rating = Number(rating);
+        }
 
         if (commentId !== null && commentId !== undefined) {
             payload.comment_id = Number(commentId);
@@ -112,14 +116,15 @@ class RecipeService {
         }
     }
 
-    static async addComment(recipeId, userId, comment) {
-        const payload = this.buildCommentPayload(recipeId, userId, comment);
+    static async addComment(recipeId, userId, comment, rating = null) {
+        const payload = this.buildCommentPayload(recipeId, userId, comment, null, rating);
 
         try {
             return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_COMMENT, {
                 recipeId: payload.recipeId,
                 userId: payload.userId,
-                commentText: payload.commentText
+                commentText: payload.commentText,
+                ...(rating !== null && { rating: payload.rating })
             });
         } catch (error) {
             console.error('Failed to add comment (primary payload):', error);
@@ -128,7 +133,8 @@ class RecipeService {
                 return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_COMMENT, {
                     recipe_id: payload.recipe_id,
                     user_id: payload.user_id,
-                    comment_text: payload.comment_text
+                    comment_text: payload.comment_text,
+                    ...(rating !== null && { rating: payload.rating })
                 });
             } catch (retryError) {
                 console.error('Failed to add comment (fallback payload):', retryError);
@@ -339,7 +345,7 @@ function renderAllRecipes(recipes, emptyMessage = 'No public recipes available y
     if (recipes.length > 0) {
         container.innerHTML = recipes.map(recipe => `
             <div class="card" onclick="showRecipeDetail(${recipe.id})">
-                <img src="${recipe.image_url || recipe.imageUrl || 'apple.jpg'}" alt="${recipe.name}">
+                <img src="${recipe.image_url || recipe.imageUrl || 'apple.jpg'}" alt="${recipe.name}" width="300" height="300">
                 <div class="overlay-text">
                     <a href="#popup">${recipe.name}</a>
                     <div style="font-size: 12px; margin-top: 5px;">by ${recipe.username || recipe.created_by || 'Unknown'}</div>
@@ -467,7 +473,7 @@ function renderUserRecipes(recipes, options = {}) {
         if (userSearchForm) userSearchForm.style.display = 'flex';
         container.innerHTML = recipes.map(recipe => `
             <div class="card" onclick="showRecipeDetail(${recipe.id})">
-                <img src="${recipe.image_url || recipe.imageUrl || recipe.image || 'apple.jpg'}" alt="${recipe.name}">
+                <img src="${recipe.image_url || recipe.imageUrl || recipe.image || 'apple.jpg'}" alt="${recipe.name}" width="300" height="300">
                 <div class="overlay-text">
                     <a href="#popup">${recipe.name}</a>
                     <div style="font-size: 12px; margin-top: 5px;">${recipe.isSavedReference ? 'Saved Public Recipe' : ((recipe.is_public !== undefined ? recipe.is_public : recipe.isPublic) ? 'Public' : 'Private')}</div>
@@ -1882,13 +1888,15 @@ async function showRecipeDetail(recipeId) {
         const comments = await RecipeService.getCommentsForRecipe(recipeId);
         const visibleComments = comments.length > 0 ? comments : fallbackComments;
 
-        const ratings = await RecipeService.getRatingsForRecipe(recipeId);
-        const ratingLookup = buildRatingLookupByUser(ratings);
-        const computedAverage = computeAverageRatingFromRows(ratings);
+        // Compute average rating from comments (which now have ratings)
+        const commentRatings = visibleComments
+            .map(c => Number(c?.rating))
+            .filter(r => Number.isFinite(r) && r > 0);
+        const computedAverage = commentRatings.length > 0 ? commentRatings.reduce((a, b) => a + b, 0) / commentRatings.length : 0;
 
         // Update rating
         const avgRating = parseFloat((computedAverage > 0 ? computedAverage : (recipe.average_rating || recipe.averageRating || 0)) || 0);
-        const ratingCount = parseInt((ratings.length > 0 ? ratings.length : (recipe.rating_count || recipe.ratingCount || 0)) || 0, 10);
+        const ratingCount = parseInt((commentRatings.length > 0 ? commentRatings.length : (recipe.rating_count || recipe.ratingCount || 0)) || 0, 10);
         const ratingEl = document.getElementById('rating') || document.getElementById('averageRating');
         const ratingCountEl = document.getElementById('ratingCount');
         if (ratingEl) {
@@ -2033,7 +2041,7 @@ async function showRecipeDetail(recipeId) {
             visibleComments.sort((a, b) => new Date(b.created_at || b.createdAt) - new Date(a.created_at || a.createdAt));
             
             commentsList.innerHTML = visibleComments.map(comment => {
-                const commentRating = Math.max(0, Math.min(5, Number(resolveCommentRating(comment, ratingLookup)) || 0));
+                const commentRating = Math.max(0, Math.min(5, Number(comment?.rating) || 0));
                 return `
                 <div class="comment">
                     <div class="comment-header">
@@ -2045,6 +2053,7 @@ async function showRecipeDetail(recipeId) {
                 </div>
             `;
             }).join('');
+
         } else if (commentsList) {
             commentsList.innerHTML = '<p>No comments yet. Be the first to leave a review!</p>';
         }
@@ -2055,7 +2064,7 @@ async function showRecipeDetail(recipeId) {
             if (currentUserComment) {
                 currentUserCommentId = getCommentId(currentUserComment);
                 if (commentRatingEl) {
-                    const safeRating = Math.max(1, Math.min(5, Number(resolveCommentRating(currentUserComment, ratingLookup)) || 5));
+                    const safeRating = Math.max(1, Math.min(5, Number(currentUserComment.rating) || 5));
                     commentRatingEl.value = String(safeRating);
                 }
                 if (commentTextEl) {
@@ -2168,18 +2177,7 @@ async function handleSort() {
         const response = await RecipeService.sortRecipes(sortBy);
         const recipes = response.rows || response.data || response || [];
         const container = document.getElementById('allRecipesContainer');
-        
-        if (container && recipes.length > 0) {
-            container.innerHTML = recipes.map(recipe => `
-                <div class="card" onclick="showRecipeDetail(${recipe.id})">
-                    <img src="${recipe.image_url || recipe.imageUrl || 'apple.jpg'}" alt="${recipe.name}">
-                    <div class="overlay-text">
-                        <a href="#popup">${recipe.name}</a>
-                        <div style="font-size: 12px; margin-top: 5px;">by ${recipe.username || 'Unknown'}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
+        container.innerHTML = recipes.map(recipe => recipeCardHTML(recipe)).join('');
     } catch (error) {
         console.error('Sort failed:', error);
     }
@@ -2576,15 +2574,9 @@ async function submitComment(event) {
     console.log('[Comment Submit] Payload:', commentPayloadTrace);
     
     try {
-        await RecipeService.addOrUpdateRating(currentRecipeId, userId, rating);
-
-        if (currentUserCommentId !== null && currentUserCommentId !== undefined) {
-            await RecipeService.updateComment(currentUserCommentId, currentRecipeId, userId, comment);
-            alert('Review updated successfully!');
-        } else {
-            await RecipeService.addComment(currentRecipeId, userId, comment);
-            alert('Review submitted successfully!');
-        }
+        // Submit comment with rating included - no need to submit rating separately
+        await RecipeService.addComment(currentRecipeId, userId, comment, rating);
+        alert('Review submitted successfully!');
         
         // Reset form
         document.getElementById('commentRating').value = '5';
