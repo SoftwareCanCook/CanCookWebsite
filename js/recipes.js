@@ -1433,6 +1433,112 @@ async function buildItemLookup() {
     return itemLookup;
 }
 
+// Check which recipe ingredients the user has enough of in their pantry
+async function checkRecipeIngredientAvailability(recipe) {
+    if (!recipe) return { available: [], insufficient: [] };
+    
+    try {
+        // Get normalized ingredients from the recipe
+        const ingredientsSource = recipe?.ingredients
+            ?? recipe?.ingredients_text
+            ?? recipe?.ingredient_list
+            ?? recipe?.ingredientList
+            ?? recipe?.recipe_ingredients
+            ?? recipe?.recipeIngredients
+            ?? recipe?.ingredient
+            ?? [];
+
+        let ingredientTexts = [];
+        if (typeof ingredientsSource === 'string') {
+            ingredientTexts = ingredientsSource.split('\n').map(line => line.trim()).filter(line => line);
+        } else {
+            const normalized = normalizeRecipeList(ingredientsSource);
+            ingredientTexts = normalized.map(ing => {
+                if (typeof ing === 'string') {
+                    return ing;
+                } else {
+                    const quantity = ing.quantityNeeded ?? ing.quantity ?? ing.quantity_needed ?? '';
+                    const unit = ing.measurementUnit ?? ing.unit ?? ing.measurement_unit ?? '';
+                    const name = resolveIngredientName(ing);
+                    return `${quantity} ${unit} ${name}`.trim();
+                }
+            }).filter(text => text);
+        }
+
+        // Fetch user's pantry items
+        const pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY);
+        const pantryItems = pantryResponse.rows || pantryResponse.data || pantryResponse || [];
+        
+        if (!Array.isArray(pantryItems)) {
+            return { available: [], insufficient: ingredientTexts };
+        }
+
+        // Build item lookup from stores
+        const itemLookup = await buildItemLookup();
+
+        // Enrich pantry items with metadata from stores
+        const enrichedPantryItems = pantryItems.map(row => {
+            const itemId = row.itemId || row.item_id;
+            const meta = itemLookup[itemId] || {};
+            return {
+                pantryRowId: row.id,
+                itemId: itemId,
+                quantity: Number(row.quantity || 0),
+                name: meta.name || row.name || `Item #${itemId}`,
+                unit: meta.unit || row.unit || 'units'
+            };
+        });
+
+        const available = [];
+        const insufficient = [];
+
+        // Try to match recipe ingredients to pantry items
+        for (const ingredientText of ingredientTexts) {
+            const parsed = parseIngredientLine(ingredientText);
+            const needQuantity = parsed.quantity;
+            const needUnit = parsed.unit;
+            const needName = parsed.ingredientName.toLowerCase();
+
+            // Try to find a matching pantry item
+            let bestMatch = null;
+            let bestScore = 0;
+
+            for (const pantryItem of enrichedPantryItems) {
+                const pantryNameLower = pantryItem.name.toLowerCase();
+                
+                // Simple fuzzy matching
+                let score = 0;
+                if (pantryNameLower === needName) score = 100;
+                else if (pantryNameLower.includes(needName)) score = 50;
+                else if (needName.includes(pantryNameLower)) score = 25;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = pantryItem;
+                }
+            }
+
+            if (!bestMatch) {
+                insufficient.push(ingredientText);
+                continue;
+            }
+
+            const availableQty = bestMatch.quantity;
+            if (availableQty < needQuantity) {
+                insufficient.push(`${ingredientText} (have ${availableQty}${bestMatch.unit}, need ${needQuantity}${needUnit})`);
+                continue;
+            }
+
+            available.push(ingredientText);
+        }
+
+        return { available, insufficient };
+    } catch (error) {
+        console.error('Error checking ingredient availability:', error);
+        return { available: [], insufficient: [] };
+    }
+}
+
 // Cook recipe and consume pantry ingredients
 async function cookRecipeAndConsumePantry() {
     const user = AuthService.getUser();
@@ -1447,6 +1553,15 @@ async function cookRecipeAndConsumePantry() {
     }
 
     try {
+        // Check ingredient availability first
+        const availability = await checkRecipeIngredientAvailability(currentRecipeData);
+        
+        if (availability.insufficient && availability.insufficient.length > 0) {
+            // Show popup with missing ingredients instead of cooking
+            showMissingIngredientsPopup(availability.insufficient, availability.available);
+            return;
+        }
+        
         // Get normalized ingredients from the recipe
         const ingredientsSource = currentRecipeData?.ingredients
             ?? currentRecipeData?.ingredients_text
@@ -1505,7 +1620,6 @@ async function cookRecipeAndConsumePantry() {
         });
 
         let consumedItems = [];
-        let missingItems = [];
 
         // Try to match recipe ingredients to pantry items
         for (const ingredientText of ingredientTexts) {
@@ -1534,13 +1648,11 @@ async function cookRecipeAndConsumePantry() {
             }
 
             if (!bestMatch) {
-                missingItems.push(ingredientText);
                 continue;
             }
 
             const available = bestMatch.quantity;
             if (available < needQuantity) {
-                missingItems.push(`${ingredientText} (have ${available}${bestMatch.unit}, need ${needQuantity}${needUnit})`);
                 continue;
             }
 
@@ -1554,17 +1666,6 @@ async function cookRecipeAndConsumePantry() {
 
             // Remove from available pool for next ingredient
             bestMatch.quantity -= needQuantity;
-        }
-
-        // Check if we have missing items
-        if (missingItems.length > 0 && consumedItems.length === 0) {
-            alert(`You're missing ingredients for this recipe:\n${missingItems.join('\n')}\n\nPlease add them to your pantry first.`);
-            return;
-        }
-
-        if (missingItems.length > 0 && consumedItems.length > 0) {
-            const proceed = confirm(`You'll use:\n${consumedItems.map(i => `• ${i.name}`).join('\n')}\n\nBut you're missing:\n${missingItems.join('\n')}\n\nContinue anyway?`);
-            if (!proceed) return;
         }
 
         if (consumedItems.length === 0) {
@@ -1613,6 +1714,75 @@ async function cookRecipeAndConsumePantry() {
         console.error('Error consuming pantry ingredients:', error);
         alert('Error: ' + (error.message || 'Could not process recipe ingredients. Please try again.'));
     }
+}
+
+// Show popup for missing ingredients
+function showMissingIngredientsPopup(insufficient, available) {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background: white; padding: 30px; border-radius: 8px; max-width: 500px; max-height: 70vh; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3);';
+    
+    // Create content
+    let content = '<h2 style="color: #f44336; margin-top: 0;">⚠️ Missing Ingredients</h2>';
+    content += '<p>You don\'t have enough of some ingredients to cook this recipe.</p>';
+    
+    if (available && available.length > 0) {
+        content += '<div style="margin-bottom: 20px;">';
+        content += '<h3 style="color: #4CAF50; margin-bottom: 10px;">✓ You Have:</h3>';
+        content += '<ul style="list-style-type: none; padding-left: 0; color: #666;">';
+        available.forEach(item => {
+            content += `<li style="margin: 5px 0; padding-left: 20px;">✓ ${item}</li>`;
+        });
+        content += '</ul>';
+        content += '</div>';
+    }
+    
+    if (insufficient && insufficient.length > 0) {
+        content += '<div style="margin-bottom: 20px;">';
+        content += '<h3 style="color: #f44336; margin-bottom: 10px;">✗ Missing or Insufficient:</h3>';
+        content += '<ul style="list-style-type: none; padding-left: 0; color: #d32f2f;">';
+        insufficient.forEach(item => {
+            content += `<li style="margin: 5px 0; padding-left: 20px; font-weight: 500;">✗ ${item}</li>`;
+        });
+        content += '</ul>';
+        content += '</div>';
+    }
+    
+    content += '<p style="color: #666; font-size: 14px; margin-bottom: 20px;">Please add the missing ingredients to your pantry or adjust the recipe.</p>';
+    
+    modal.innerHTML = content;
+    
+    // Create button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;';
+    
+    // Create close button
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.cssText = 'background-color: #999; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;';
+    closeBtn.addEventListener('click', () => {
+        overlay.remove();
+    });
+    
+    // Create go to pantry button
+    const pantryBtn = document.createElement('button');
+    pantryBtn.textContent = 'Go to Pantry';
+    pantryBtn.style.cssText = 'background-color: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;';
+    pantryBtn.addEventListener('click', () => {
+        overlay.remove();
+        window.location.href = 'pantry.html';
+    });
+    
+    buttonContainer.appendChild(closeBtn);
+    buttonContainer.appendChild(pantryBtn);
+    modal.appendChild(buttonContainer);
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
 }
 
 // Show recipe detail in popup
@@ -1751,19 +1921,37 @@ async function showRecipeDetail(recipeId) {
             const cachedIngredients = getCachedRecipeIngredients(recipe, currentUser);
             ingredients = normalizeRecipeList(cachedIngredients);
         }
+        
+        // Check ingredient availability for current user
+        let insufficientIngredients = [];
+        if (currentUser && currentUser.role === 'user') {
+            const availability = await checkRecipeIngredientAvailability(recipe);
+            insufficientIngredients = availability.insufficient || [];
+        }
+        
         const ingredientsList = document.getElementById('ingredientsList');
         if (ingredientsList && ingredients.length > 0) {
             ingredientsList.innerHTML = ingredients.map(ing => {
+                let displayText = '';
                 if (typeof ing === 'string') {
-                    return `<li>${ing}</li>`;
+                    displayText = ing;
                 } else {
                     const quantity = ing.quantityNeeded ?? ing.quantity ?? ing.quantity_needed ?? '';
                     const unit = ing.measurementUnit ?? ing.unit ?? ing.measurement_unit ?? '';
                     const name = resolveIngredientName(ing);
                     const formatted = `${quantity} ${unit} ${name}`.trim();
-                    const fallbackText = formatted || Object.values(ing).filter(v => v !== null && v !== undefined).join(' ').trim();
-                    return `<li>${fallbackText}</li>`;
+                    displayText = formatted || Object.values(ing).filter(v => v !== null && v !== undefined).join(' ').trim();
                 }
+                
+                // Check if this ingredient is in the insufficient list
+                const isInsufficient = insufficientIngredients.some(insuf => {
+                    const inName = insuf.split('(')[0].trim().toLowerCase();
+                    const displayLower = displayText.toLowerCase();
+                    return displayLower.includes(inName) || inName.includes(displayLower);
+                });
+                
+                const warningIcon = isInsufficient ? ' <span style="color: #f44336; font-weight: bold; margin-left: 8px;" title="Insufficient quantity in pantry">⚠️</span>' : '';
+                return `<li>${displayText}${warningIcon}</li>`;
             }).join('');
         } else if (ingredientsList) {
             ingredientsList.innerHTML = '<li>No ingredients listed</li>';
