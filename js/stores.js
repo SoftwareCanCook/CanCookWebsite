@@ -32,6 +32,23 @@ class StoreService {
     }
 }
 
+let currentStore = null;
+
+async function decrementStoreInventory(storeId, itemId, newStock) {
+    const endpoint = `${API_CONFIG.ENDPOINTS.STORE_ITEMS}${storeId}/items/${itemId}`;
+    const targetStock = Math.max(0, Number(newStock) || 0);
+
+    try {
+        return await ApiService.put(endpoint, { quantity: targetStock, stock: targetStock });
+    } catch (firstError) {
+        try {
+            return await ApiService.put(endpoint, { stock: targetStock });
+        } catch (secondError) {
+            return await ApiService.put(endpoint, { quantity: targetStock });
+        }
+    }
+}
+
 // Load and display stores
 async function loadStores() {
     try {
@@ -84,6 +101,8 @@ async function loadStoreItems(storeId, storeName) {
     }
     
     try {
+        currentStore = { id: storeId, name: storeName };
+
         // Update popup title
         document.getElementById('storePopupTitle').textContent = `${storeName} - Inventory`;
         
@@ -123,7 +142,7 @@ async function loadStoreItems(storeId, storeName) {
                     tableHTML += `
                         <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
                             <input id="qty-${item.id}" type="number" min="1" max="${stock}" value="1" style="width: 70px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;" />
-                            <button onclick="addItemToPantry(${item.id}, '${name.replace(/'/g, "\\'")}', '${unit.replace(/'/g, "\\'")}', ${stock})" style="background-color: #4CAF50; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Add to Pantry</button>
+                            <button onclick="addItemToPantry(${storeId}, ${item.id}, '${name.replace(/'/g, "\\'")}', '${unit.replace(/'/g, "\\'")}', ${stock})" style="background-color: #4CAF50; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Add to Pantry</button>
                         </div>
                     `;
                 } else {
@@ -165,7 +184,7 @@ function closeStorePopup() {
 }
 
 // Add item to pantry from store
-async function addItemToPantry(itemId, itemName, unit, stock) {
+async function addItemToPantry(storeId, itemId, itemName, unit, stock) {
     const qtyInput = document.getElementById(`qty-${itemId}`);
     const quantity = parseInt(qtyInput?.value, 10) || 1;
     
@@ -184,11 +203,20 @@ async function addItemToPantry(itemId, itemName, unit, stock) {
         const itemData = {
             itemId: itemId,
             quantity: quantity,
-            userId: user.id
+            userId: user.id,
+            storeId: storeId
         };
         
         await StoreService.addToPantry(itemData);
+
+        const remainingStock = Number(stock) - Number(quantity);
+        await decrementStoreInventory(storeId, itemId, remainingStock);
+
         alert(`${quantity} ${unit} of ${itemName} added to your pantry!`);
+
+        if (currentStore && String(currentStore.id) === String(storeId)) {
+            await loadStoreItems(currentStore.id, currentStore.name);
+        }
     } catch (error) {
         console.error('Failed to add item to pantry:', error);
         alert('Failed to add item to pantry: ' + (error.message || 'Unknown error'));

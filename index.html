@@ -66,6 +66,7 @@
                            
                             <span id="cookTime" class="value">Loading...</span>
                         </div>
+                        <div id="recipeCookTimerAction" style="margin: 8px 0 14px 0;"></div>
 
                         <div class = "rating-display">
                             <!-- We don't have to get an average rating if we don't have time to implement-->
@@ -77,6 +78,10 @@
                             <button type="button" onclick="editRecipe()" style="background-color: #2196F3; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Edit Recipe</button>
                             <button id="privacyToggleBtn" type="button" onclick="toggleRecipePrivacy()" style="background-color: #FF9800; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Make Private</button>
                             <button type="button" onclick="deleteRecipe()" style="background-color: #f44336; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;">Delete Recipe</button>
+                        </div>
+
+                        <div id="publicRecipeActions" style="display: none; margin: 10px 0 20px 0;">
+                            <button type="button" onclick="addPublicRecipeToMyRecipes()" style="background-color: #4CAF50; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;">Add to My Recipes</button>
                         </div>
                     
                         <!--Ingredients and instructions-->
