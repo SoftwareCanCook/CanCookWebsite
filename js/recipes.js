@@ -335,6 +335,131 @@ class RecipeService {
 
 // Load and display all recipes
 let allPublicRecipesCache = [];
+let recipeUserLookupCache = null;
+const SEEDED_USER_FALLBACK_BY_ID = {
+    '1': 'admin',
+    '2': 'groceryadmin',
+    '3': 'groceryadmin2',
+    '4': 'johndoe',
+    '5': 'janedoe',
+    '6': 'chefmike',
+    '7': 'bakerlisa'
+};
+
+function getNestedRecipeCreatorLabel(recipe) {
+    const nestedUser = recipe?.user || recipe?.creator || recipe?.author || recipe?.createdBy || recipe?.created_by_user;
+    const nestedLabel = nestedUser?.username
+        || nestedUser?.user_name
+        || nestedUser?.name
+        || nestedUser?.full_name
+        || nestedUser?.display_name
+        || '';
+
+    if (nestedLabel) {
+        return String(nestedLabel).trim();
+    }
+
+    const directLabel = recipe?.username
+        || recipe?.user_name
+        || recipe?.created_by
+        || recipe?.createdBy
+        || recipe?.owner
+        || recipe?.author
+        || recipe?.created_by_name
+        || recipe?.createdByName
+        || '';
+
+    return String(directLabel).trim();
+}
+
+function buildRecipeUserLookup(users) {
+    const byId = new Map();
+    const byUsername = new Map();
+
+    (Array.isArray(users) ? users : []).forEach(user => {
+        if (!user || typeof user !== 'object') {
+            return;
+        }
+
+        const userId = user.id ?? user.userId ?? user.user_id;
+        const username = (user.username || user.user_name || user.name || '').toString().trim();
+
+        if (userId !== undefined && userId !== null) {
+            byId.set(String(userId), username);
+        }
+
+        if (username) {
+            byUsername.set(username.toLowerCase(), username);
+        }
+    });
+
+    return { byId, byUsername };
+}
+
+function extractApiRows(response) {
+    const raw = response?.rows
+        ?? response?.data?.rows
+        ?? response?.data?.content
+        ?? response?.data?.users
+        ?? response?.data?.recipes
+        ?? response?.data
+        ?? response?.content
+        ?? response?.users
+        ?? response?.recipes
+        ?? response;
+
+    return Array.isArray(raw) ? raw : [];
+}
+
+async function getRecipeUserLookup() {
+    if (recipeUserLookupCache) {
+        return recipeUserLookupCache;
+    }
+
+    const fallbackLookup = buildRecipeUserLookup(
+        Object.entries(SEEDED_USER_FALLBACK_BY_ID).map(([id, username]) => ({ id, username }))
+    );
+
+    try {
+        const response = await ApiService.get(API_CONFIG.ENDPOINTS.USER);
+        const users = extractApiRows(response);
+        const lookup = buildRecipeUserLookup(users);
+
+        // If endpoint is inaccessible for regular users, keep seeded IDs as fallback.
+        for (const [id, username] of Object.entries(SEEDED_USER_FALLBACK_BY_ID)) {
+            if (!lookup.byId.has(String(id))) {
+                lookup.byId.set(String(id), username);
+            }
+        }
+
+        recipeUserLookupCache = lookup;
+    } catch (error) {
+        console.warn('Failed to load recipe user lookup:', error);
+        recipeUserLookupCache = fallbackLookup;
+    }
+
+    return recipeUserLookupCache;
+}
+
+async function resolveRecipeCreatorLabel(recipe) {
+    const directLabel = getNestedRecipeCreatorLabel(recipe);
+    if (directLabel) {
+        return directLabel;
+    }
+
+    const recipeOwnerId = recipe?.user_id ?? recipe?.userId ?? recipe?.owner_id ?? recipe?.ownerId ?? recipe?.created_by_id ?? recipe?.createdById;
+    if (recipeOwnerId === undefined || recipeOwnerId === null) {
+        return 'Unknown';
+    }
+
+    const lookup = await getRecipeUserLookup();
+    const byId = lookup.byId.get(String(recipeOwnerId));
+    if (byId) {
+        return byId;
+    }
+
+    return 'Unknown';
+}
 
 function renderAllRecipes(recipes, emptyMessage = 'No public recipes available yet. Create the first one!') {
     const container = document.getElementById('allRecipesContainer');
@@ -348,8 +473,8 @@ function renderAllRecipes(recipes, emptyMessage = 'No public recipes available y
                 <img src="${recipe.image_url || recipe.imageUrl || recipe.image || 'apple.jpg'}" alt="${recipe.name}" width="300" height="300">
                 <div class="overlay-text">
                     <a href="#popup">${recipe.name}</a>
-                    <div style="font-size: 12px; margin-top: 5px;">by ${recipe.username || recipe.created_by || 'Unknown'}</div>
-                    <div style="font-size: 12px;">★ ${recipe.average_rating || recipe.averageRating || '0.0'}</div>
+                    <div style="font-size: 12px; margin-top: 5px;">by ${recipe.creatorLabel || getNestedRecipeCreatorLabel(recipe) || recipe.username || recipe.created_by || 'Unknown'}</div>
+                    <div style="font-size: 12px;">${formatRecipeStars(getRecipeRatingSummary(recipe).average)} ${getRecipeRatingSummary(recipe).average.toFixed(1)}${getRecipeRatingSummary(recipe).count > 0 ? ` (${getRecipeRatingSummary(recipe).count})` : ''}</div>
                 </div>
             </div>
         `).join('');
@@ -444,7 +569,35 @@ async function loadAllRecipes() {
             return isPublic === true || isPublic === 1 || isPublic === '1' || isPublic === 'true';
         });
 
-        allPublicRecipesCache = [...recipes];
+        const recipesWithRatings = await Promise.all(recipes.map(async (recipe) => {
+            try {
+                const ratingRows = await RecipeService.getRatingsForRecipe(recipe.id);
+                const creatorLabel = await resolveRecipeCreatorLabel(recipe);
+                const summary = {
+                    average: computeAverageRatingFromRows(ratingRows),
+                    count: ratingRows.length
+                };
+
+                return {
+                    ...recipe,
+                    creatorLabel,
+                    average_rating: summary.average || recipe.average_rating || recipe.averageRating || 0,
+                    averageRating: summary.average || recipe.average_rating || recipe.averageRating || 0,
+                    rating_count: summary.count || recipe.rating_count || recipe.ratingCount || 0,
+                    ratingCount: summary.count || recipe.rating_count || recipe.ratingCount || 0,
+                    ratingSummary: summary
+                };
+            } catch (error) {
+                console.warn(`Failed to load rating summary for recipe ${recipe.id}:`, error);
+                return {
+                    ...recipe,
+                    creatorLabel: await resolveRecipeCreatorLabel(recipe),
+                    ratingSummary: getRecipeRatingSummary(recipe)
+                };
+            }
+        }));
+
+        allPublicRecipesCache = [...recipesWithRatings];
         renderAllRecipes(allPublicRecipesCache);
     } catch (error) {
         console.error('Failed to load all recipes:', error);
@@ -1190,6 +1343,22 @@ function computeAverageRatingFromRows(ratings) {
     return total / values.length;
 }
 
+function getRecipeRatingSummary(recipe) {
+    const summary = recipe?.ratingSummary || {};
+    const average = Number(summary.average ?? recipe?.average_rating ?? recipe?.averageRating ?? 0);
+    const count = Number(summary.count ?? recipe?.rating_count ?? recipe?.ratingCount ?? 0);
+
+    return {
+        average: Number.isFinite(average) ? average : 0,
+        count: Number.isFinite(count) ? count : 0
+    };
+}
+
+function formatRecipeStars(average) {
+    const rounded = Math.max(0, Math.min(5, Math.round(Number(average) || 0)));
+    return '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
+}
+
 function parseCookTimeToMinutes(rawCookTime) {
     if (rawCookTime === null || rawCookTime === undefined) {
         return 0;
@@ -1852,7 +2021,8 @@ async function showRecipeDetail(recipeId) {
             recipeNameEl.textContent = recipe.name || 'Untitled Recipe';
         }
         if (recipeCreatorEl) {
-            recipeCreatorEl.textContent = recipe.username || recipe.created_by || 'Unknown';
+            const creatorLabel = await resolveRecipeCreatorLabel(recipe);
+            recipeCreatorEl.textContent = `by ${creatorLabel}`;
         }
         if (recipeCookTimeEl) {
             recipeCookTimeEl.textContent = recipe.cook_time || recipe.cookTime || 'N/A';
@@ -1885,18 +2055,23 @@ async function showRecipeDetail(recipeId) {
         }
         
         const fallbackComments = normalizeRecipeList(recipe.comments).filter(item => item && typeof item === 'object');
-        const comments = await RecipeService.getCommentsForRecipe(recipeId);
+        const [comments, ratingRows] = await Promise.all([
+            RecipeService.getCommentsForRecipe(recipeId),
+            RecipeService.getRatingsForRecipe(recipeId)
+        ]);
         const visibleComments = comments.length > 0 ? comments : fallbackComments;
+        const ratingLookup = buildRatingLookupByUser(ratingRows);
 
-        // Compute average rating from comments (which now have ratings)
+        // Compute average rating from ratings first, then fall back to comment-linked ratings or recipe fields.
         const commentRatings = visibleComments
-            .map(c => Number(c?.rating))
-            .filter(r => Number.isFinite(r) && r > 0);
-        const computedAverage = commentRatings.length > 0 ? commentRatings.reduce((a, b) => a + b, 0) / commentRatings.length : 0;
+            .map(comment => resolveCommentRating(comment, ratingLookup))
+            .filter(rating => Number.isFinite(rating) && rating > 0);
+        const computedAverage = computeAverageRatingFromRows(ratingRows);
+        const commentAverage = commentRatings.length > 0 ? commentRatings.reduce((a, b) => a + b, 0) / commentRatings.length : 0;
 
         // Update rating
-        const avgRating = parseFloat((computedAverage > 0 ? computedAverage : (recipe.average_rating || recipe.averageRating || 0)) || 0);
-        const ratingCount = parseInt((commentRatings.length > 0 ? commentRatings.length : (recipe.rating_count || recipe.ratingCount || 0)) || 0, 10);
+        const avgRating = parseFloat((computedAverage > 0 ? computedAverage : (commentAverage > 0 ? commentAverage : (recipe.average_rating || recipe.averageRating || 0))) || 0);
+        const ratingCount = parseInt((ratingRows.length > 0 ? ratingRows.length : (commentRatings.length > 0 ? commentRatings.length : (recipe.rating_count || recipe.ratingCount || 0))) || 0, 10);
         const ratingEl = document.getElementById('rating') || document.getElementById('averageRating');
         const ratingCountEl = document.getElementById('ratingCount');
         if (ratingEl) {
@@ -2045,7 +2220,7 @@ async function showRecipeDetail(recipeId) {
             console.log('All comment fields:', Object.keys(visibleComments[0]));
             
             commentsList.innerHTML = visibleComments.map(comment => {
-                const commentRating = Math.max(0, Math.min(5, Number(comment?.rating) || 0));
+                const commentRating = Math.max(0, Math.min(5, Number(resolveCommentRating(comment, ratingLookup)) || 0));
                 return `
                 <div class="comment">
                     <div class="comment-header">
