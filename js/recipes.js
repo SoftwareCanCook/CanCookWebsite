@@ -2249,32 +2249,13 @@ async function showRecipeDetail(recipeId) {
         }
 
         currentUserCommentId = null;
-        if (user && user.role === 'user' && visibleComments.length > 0) {
-            const currentUserComment = visibleComments.find(comment => isCommentOwnedByUser(comment, user));
-            if (currentUserComment) {
-                currentUserCommentId = getCommentId(currentUserComment);
-                if (commentRatingEl) {
-                    const safeRating = Math.max(1, Math.min(5, Number(currentUserComment.rating) || 5));
-                    commentRatingEl.value = String(safeRating);
-                }
-                if (commentTextEl) {
-                    commentTextEl.value = currentUserComment.commentText || currentUserComment.comment_text || currentUserComment.text || currentUserComment.comment || '';
-                }
-                if (commentSubmitBtn) {
-                    commentSubmitBtn.textContent = 'Update Review';
-                }
-            } else {
-                if (commentRatingEl) {
-                    commentRatingEl.value = '5';
-                }
-                if (commentTextEl) {
-                    commentTextEl.value = '';
-                }
-                if (commentSubmitBtn) {
-                    commentSubmitBtn.textContent = 'Submit Review';
-                }
-            }
-        } else if (commentSubmitBtn) {
+        if (commentRatingEl) {
+            commentRatingEl.value = '5';
+        }
+        if (commentTextEl) {
+            commentTextEl.value = '';
+        }
+        if (commentSubmitBtn) {
             commentSubmitBtn.textContent = 'Submit Review';
         }
         
