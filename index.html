@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +11,7 @@
     <script src="js/auth.js"></script>
     <script src="js/recipes.js"></script>
 </head>
+
 <body>
 
     <!-- Navbar -->
@@ -23,12 +25,16 @@
         <!-- Search and Sort Controls -->
         <div style="display: flex; gap: 10px; margin: 20px 0; align-items: center; flex-wrap: wrap;">
             <form id="searchForm" style="display: flex; gap: 10px; flex: 1;">
-                <input type="text" id="site-search" placeholder="Search recipes by name or ingredient..." 
-                       style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                <button type="submit" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Search</button>
-                <button type="button" onclick="clearSearch()" style="padding: 8px 16px; background-color: #999; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
+                <input type="text" id="site-search" placeholder="Search recipes..."
+                    style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <button type="submit"
+                    style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Search</button>
+                <button type="button" onclick="clearSearch()"
+                    style="padding: 8px 16px; background-color: #999; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
             </form>
-            <button onclick="showCreateRecipeForm()" id="createRecipeBtn" style="padding: 8px 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; display: none;">+ Create Recipe</button>
+            <button onclick="showCreateRecipeForm()" id="createRecipeBtn"
+                style="padding: 8px 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; display: none;">+
+                Create Recipe</button>
         </div>
 
         <!-- All Recipes Slider -->
@@ -40,10 +46,12 @@
         <!-- Your Recipes Slider -->
         <h1 id="yourRecipesHeader" style="display: none;">Your Recipes</h1>
         <form id="userSearchForm" style="display: none; gap: 10px; margin: 10px 10px 0 10px; align-items: center;">
-            <input type="text" id="user-recipes-search" placeholder="Search your recipes by name or ingredient..."
-                   style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-            <button type="submit" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Search</button>
-            <button type="button" onclick="clearUserRecipesSearch()" style="padding: 8px 16px; background-color: #999; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
+            <input type="text" id="user-recipes-search" placeholder="Search your recipes..."
+                style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            <button type="submit"
+                style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Search</button>
+            <button type="button" onclick="clearUserRecipesSearch()"
+                style="padding: 8px 16px; background-color: #999; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear</button>
         </form>
         <div class="horizontal-scroller" id="userRecipesContainer">
         </div>
@@ -51,83 +59,100 @@
         <!-- Full Recipe Popup-->
         <div id="popup" class="popup">
             <div class="popup-content">
-                <a href="#" onclick="closeRecipePopup()">X</a>  
-                    <div class = "recipe-page">
+                <a href="#" onclick="closeRecipePopup()">X</a>
+                <div class="recipe-page">
 
-                        
 
-                        <div class = "recipe-image">
-                            <!--Retrieve recipe image-->
-                            <img src="apple.jpg" alt="Recipe Image" width="300" height="300">
-                        </div>
-                        <h1 id="name">Loading recipe name...</h1>
-                        <div class="meta-info">
-                            <span class="label">Cook Time:</span>
-                           
-                            <span id="cookTime" class="value">Loading...</span>
-                        </div>
-                        <div id="recipeCookTimerAction" style="margin: 8px 0 14px 0;"></div>
 
-                        <div class = "rating-display">
-                            <!-- We don't have to get an average rating if we don't have time to implement-->
-                            <h4 id="stars" class="stars">☆☆☆☆☆</span>
+                    <div class="recipe-image">
+                        <!--Retrieve recipe image-->
+                        <img src="apple.jpg" alt="Recipe Image" width="300" height="300">
+                    </div>
+                    <h1 id="name">Loading recipe name...</h1>
+                    <div class="meta-info">
+                        <span class="label">Cook Time:</span>
+
+                        <span id="cookTime" class="value">Loading...</span>
+                    </div>
+                    <div id="recipeCookTimerAction" style="margin: 8px 0 14px 0;"></div>
+
+                    <div class="rating-display">
+                        <!-- We don't have to get an average rating if we don't have time to implement-->
+                        <h4 id="stars" class="stars">☆☆☆☆☆</span>
                             <h3 id="averageRating" class="rating-value">loading...</span>
-                        </div>
+                    </div>
 
-                        <div id="recipeActions" style="display: none; margin: 10px 0 20px 0;">
-                            <button type="button" onclick="cookRecipeAndConsumePantry()" style="background-color: #FF6B35; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Cook Now</button>
-                            <button type="button" onclick="editRecipe()" style="background-color: #2196F3; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Edit Recipe</button>
-                            <button id="privacyToggleBtn" type="button" onclick="toggleRecipePrivacy()" style="background-color: #FF9800; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Make Private</button>
-                            <button type="button" onclick="deleteRecipe()" style="background-color: #f44336; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;">Delete Recipe</button>
-                        </div>
+                    <div id="recipeActions" style="display: none; margin: 10px 0 20px 0;">
+                        <button type="button" onclick="cookRecipeAndConsumePantry()"
+                            style="background-color: #FF6B35; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Cook
+                            Now</button>
+                        <button type="button" onclick="editRecipe()"
+                            style="background-color: #2196F3; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Edit
+                            Recipe</button>
+                        <button id="privacyToggleBtn" type="button" onclick="toggleRecipePrivacy()"
+                            style="background-color: #FF9800; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Make
+                            Private</button>
+                        <button type="button" onclick="deleteRecipe()"
+                            style="background-color: #f44336; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;">Delete
+                            Recipe</button>
+                    </div>
 
-                        <div id="publicRecipeActions" style="display: none; margin: 10px 0 20px 0;">
-                            <button type="button" onclick="addPublicRecipeToMyRecipes()" style="background-color: #4CAF50; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Add to My Recipes</button>
-                            <button type="button" onclick="cookRecipeAndConsumePantry()" style="background-color: #FF6B35; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;">Cook Now</button>
-                        </div>
-                    
-                        <!--Ingredients and instructions-->
-                        <div class="recipe-content">
-                            <section class="ingredients">
-                                <h2>Ingredients</h2>
-                                <ul id="ingredientsList" style="list-style-type: disc"></ul>
-                            </section>
+                    <div id="publicRecipeActions" style="display: none; margin: 10px 0 20px 0;">
+                        <button type="button" onclick="addPublicRecipeToMyRecipes()"
+                            style="background-color: #4CAF50; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px;">Add
+                            to My Recipes</button>
+                        <button type="button" onclick="cookRecipeAndConsumePantry()"
+                            style="background-color: #FF6B35; color: white; padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer;">Cook
+                            Now</button>
+                    </div>
 
-                            <section class="instructions">
-                                <h2>Instructions</h2>
-                                <ol id="instructionsList">loading instructions...</ol>
-                            </section>
+                    <!--Ingredients and instructions-->
+                    <div class="recipe-content">
+                        <section class="ingredients">
+                            <h2>Ingredients</h2>
+                            <ul id="ingredientsList" style="list-style-type: disc"></ul>
+                        </section>
 
-                        </div>
+                        <section class="instructions">
+                            <h2>Instructions</h2>
+                            <ol id="instructionsList">loading instructions...</ol>
+                        </section>
 
-                        <!--Comments section-->
-                        <div class="comments-section">
-                            <h2>Reviews & Comments</h2>
-                            <div id="commentsList">
-                                <p>Loading comments...</p>
-                            </div>
-                            <form id="addCommentForm" onsubmit="submitComment(event)" style="display: none; margin-top: 15px; text-align: left;">
-                                <h3 style="margin-bottom: 10px;">Leave a Review</h3>
-                                <label for="commentRating">Rating:</label>
-                                <select id="commentRating" required style="margin-left: 8px; padding: 6px;">
-                                    <option value="5">5 - Excellent</option>
-                                    <option value="4">4 - Good</option>
-                                    <option value="3">3 - Average</option>
-                                    <option value="2">2 - Poor</option>
-                                    <option value="1">1 - Very Poor</option>
-                                </select>
-                                <br><br>
-                                <label for="commentText">Comment:</label><br>
-                                <textarea id="commentText" rows="4" required maxlength="1000" placeholder="Share your thoughts about this recipe..." style="width: 100%; padding: 8px; margin-top: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
-                                <br><br>
-                                <button id="commentSubmitBtn" type="submit" style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">Submit Review</button>
-                            </form>
+                    </div>
+
+                    <!--Comments section-->
+                    <div class="comments-section">
+                        <h2>Reviews & Comments</h2>
+                        <div id="commentsList">
+                            <p>Loading comments...</p>
                         </div>
+                        <form id="addCommentForm" onsubmit="submitComment(event)"
+                            style="display: none; margin-top: 15px; text-align: left;">
+                            <h3 style="margin-bottom: 10px;">Leave a Review</h3>
+                            <label for="commentRating">Rating:</label>
+                            <select id="commentRating" required style="margin-left: 8px; padding: 6px;">
+                                <option value="5">5 - Excellent</option>
+                                <option value="4">4 - Good</option>
+                                <option value="3">3 - Average</option>
+                                <option value="2">2 - Poor</option>
+                                <option value="1">1 - Very Poor</option>
+                            </select>
+                            <br><br>
+                            <label for="commentText">Comment:</label><br>
+                            <textarea id="commentText" rows="4" required maxlength="1000"
+                                placeholder="Share your thoughts about this recipe..."
+                                style="width: 100%; padding: 8px; margin-top: 8px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+                            <br><br>
+                            <button id="commentSubmitBtn" type="submit"
+                                style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">Submit
+                                Review</button>
+                        </form>
+                    </div>
                 </div>
             </div>
             <a href="#" class="popup-return" onclick="closeRecipePopup()"></a>
         </div>
-        
+
         <!-- Create/Edit Recipe Popup -->
         <div id="recipeFormPopup" class="popup" style="display: none;">
             <div class="popup-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
@@ -135,52 +160,70 @@
                 <h2 id="recipeFormTitle">Create New Recipe</h2>
                 <form id="recipeForm" onsubmit="submitRecipe(event)" style="padding: 20px;">
                     <input type="hidden" id="recipeFormId" value="">
-                    
+
                     <label>Recipe Name: *</label><br>
-                    <input type="text" id="recipeFormName" required style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br><br>
-                    
+                    <input type="text" id="recipeFormName" required
+                        style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br><br>
+
                     <label>Image URL:</label><br>
-                    <input type="url" id="recipeFormImage" placeholder="https://example.com/image.jpg" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br>
+                    <input type="url" id="recipeFormImage" placeholder="https://example.com/image.jpg"
+                        style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br>
                     <br>
-                    
+
                     <label>Cook Time: *</label><br>
-                    <input type="text" id="recipeFormCookTime" required placeholder="e.g., 30 minutes" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br><br>
-                    
+                    <input type="text" id="recipeFormCookTime" required placeholder="e.g., 30 minutes"
+                        style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"><br><br>
+
                     <label>Visibility: *</label><br>
                     <select id="recipeFormVisibility" style="padding: 8px; margin: 5px 0; width: 150px;">
                         <option value="public">Public</option>
                         <option value="private">Private</option>
                     </select><br><br>
-                    
-                    <label>Ingredients: * (one per line with quantity)</label><br>
-                    <textarea id="recipeFormIngredients" rows="6" required placeholder="e.g.&#10;2 cups flour&#10;1 tsp salt&#10;3 eggs" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"></textarea><br><br>
 
-                    <div style="text-align: left; margin: 10px 0 20px 0; border: 1px solid #ddd; border-radius: 6px; padding: 12px;">
+                    <label>Ingredients: * (one per line with quantity)</label><br>
+                    <textarea id="recipeFormIngredients" rows="6" required
+                        placeholder="e.g.&#10;2 cups flour&#10;1 tsp salt&#10;3 eggs"
+                        style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"></textarea><br><br>
+
+                    <div
+                        style="text-align: left; margin: 10px 0 20px 0; border: 1px solid #ddd; border-radius: 6px; padding: 12px;">
                         <h3 style="margin: 0 0 10px 0;">Your Pantry Items</h3>
-                        <div id="recipePantryPicker" style="max-height: 220px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 8px; background: #fafafa;">
+                        <div id="recipePantryPicker"
+                            style="max-height: 220px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px; padding: 8px; background: #fafafa;">
                             <p style="margin: 0; color: #666;">Loading pantry items...</p>
                         </div>
-                        <small style="color: #666; display: block; margin-top: 8px;">Choose quantity and click "Use in Recipe" to add item to ingredients. Selected amounts are deducted from your pantry when creating the recipe.</small>
+                        <small style="color: #666; display: block; margin-top: 8px;">Choose quantity and click "Use in
+                            Recipe" to add item to ingredients. Selected amounts are deducted from your pantry when
+                            creating the recipe.</small>
                     </div>
-                    
+
                     <label>Instructions: * (one step per line)</label><br>
                     <small style="color: #666;">Add timers with [timer:15m] or [timer:2h30m] format</small><br>
-                    <textarea id="recipeFormInstructions" rows="8" required placeholder="e.g.&#10;Preheat oven to 350°F&#10;Mix dry ingredients and bake [timer:20m]&#10;Add wet ingredients" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"></textarea><br><br>
-                    
-                    <div id="pantryCheckResult" style="margin: 10px 0; padding: 10px; border-radius: 4px; display: none;"></div>
-                    
-                    <button type="button" onclick="checkPantryIngredients()" style="background-color: #FF9800; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">Check Pantry</button>
-                    <button type="submit" style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Save Recipe</button>
-                    <button type="button" onclick="closeRecipeForm()" style="background-color: #999; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Cancel</button>
+                    <textarea id="recipeFormInstructions" rows="8" required
+                        placeholder="e.g.&#10;Preheat oven to 350°F&#10;Mix dry ingredients and bake [timer:20m]&#10;Add wet ingredients"
+                        style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;"></textarea><br><br>
+
+                    <div id="pantryCheckResult"
+                        style="margin: 10px 0; padding: 10px; border-radius: 4px; display: none;"></div>
+
+                    <button type="button" onclick="checkPantryIngredients()"
+                        style="background-color: #FF9800; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">Check
+                        Pantry</button>
+                    <button type="submit"
+                        style="background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Save
+                        Recipe</button>
+                    <button type="button" onclick="closeRecipeForm()"
+                        style="background-color: #999; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">Cancel</button>
                 </form>
             </div>
         </div>
     </div>
-    
+
     <!-- Footer -->
     <footer>
         <p>&copy; 2026 - Can Cook - By team C(ooked)++</p>
     </footer>
 
 </body>
+
 </html>
