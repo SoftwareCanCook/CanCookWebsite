@@ -1685,10 +1685,8 @@ async function checkRecipeIngredientAvailability(recipe) {
             const needUnit = parsed.unit;
             const needName = parsed.ingredientName.toLowerCase();
 
-            // Try to find a matching pantry item
-            let bestMatch = null;
-            let bestScore = 0;
-
+            // Find ALL matching pantry items and score them
+            const matches = [];
             for (const pantryItem of enrichedPantryItems) {
                 const pantryNameLower = pantryItem.name.toLowerCase();
                 
@@ -1698,20 +1696,27 @@ async function checkRecipeIngredientAvailability(recipe) {
                 else if (pantryNameLower.includes(needName)) score = 50;
                 else if (needName.includes(pantryNameLower)) score = 25;
                 
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = pantryItem;
+                if (score > 0) {
+                    matches.push({ ...pantryItem, score });
                 }
             }
 
-            if (!bestMatch) {
+            if (matches.length === 0) {
                 insufficient.push(ingredientText);
                 continue;
             }
 
-            const availableQty = bestMatch.quantity;
-            if (availableQty < needQuantity) {
-                insufficient.push(`${ingredientText} (have ${availableQty}${bestMatch.unit}, need ${needQuantity}${needUnit})`);
+            // Sort matches by score (descending) to try best matches first
+            matches.sort((a, b) => b.score - a.score);
+
+            // Accumulate quantities across all matching pantry items
+            let totalAvailable = 0;
+            for (const match of matches) {
+                totalAvailable += match.quantity;
+            }
+
+            if (totalAvailable < needQuantity) {
+                insufficient.push(`${ingredientText} (have ${totalAvailable}${matches[0].unit}, need ${needQuantity}${needUnit})`);
                 continue;
             }
 
@@ -1793,7 +1798,7 @@ async function cookRecipeAndConsumePantry() {
         const itemLookup = await buildItemLookup();
 
         // Enrich pantry items with metadata from stores
-        const enrichedPantryItems = pantryItems.map(row => {
+        let enrichedPantryItems = pantryItems.map(row => {
             const itemId = row.itemId || row.item_id;
             const meta = itemLookup[itemId] || {};
             return {
@@ -1810,14 +1815,12 @@ async function cookRecipeAndConsumePantry() {
         // Try to match recipe ingredients to pantry items
         for (const ingredientText of ingredientTexts) {
             const parsed = parseIngredientLine(ingredientText);
-            const needQuantity = parsed.quantity;
+            let needQuantity = parsed.quantity;
             const needUnit = parsed.unit;
             const needName = parsed.ingredientName.toLowerCase();
 
-            // Try to find a matching pantry item
-            let bestMatch = null;
-            let bestScore = 0;
-
+            // Find ALL matching pantry items and score them
+            const matches = [];
             for (const pantryItem of enrichedPantryItems) {
                 const pantryNameLower = pantryItem.name.toLowerCase();
                 
@@ -1827,31 +1830,40 @@ async function cookRecipeAndConsumePantry() {
                 else if (pantryNameLower.includes(needName)) score = 50;
                 else if (needName.includes(pantryNameLower)) score = 25;
                 
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestMatch = pantryItem;
+                if (score > 0) {
+                    matches.push({ ...pantryItem, score });
                 }
             }
 
-            if (!bestMatch) {
+            if (matches.length === 0) {
                 continue;
             }
 
-            const available = bestMatch.quantity;
-            if (available < needQuantity) {
-                continue;
+            // Sort matches by score (descending) to consume from best matches first
+            matches.sort((a, b) => b.score - a.score);
+
+            // Consume from multiple pantry items until we have enough
+            for (const match of matches) {
+                if (needQuantity <= 0) break;
+
+                const available = match.quantity;
+                const quantityToUse = Math.min(needQuantity, available);
+
+                consumedItems.push({
+                    pantryRowId: match.pantryRowId,
+                    name: match.name,
+                    quantityUsed: quantityToUse,
+                    availableQuantity: available
+                });
+
+                // Update the pantry item's remaining quantity
+                const pantryItemIndex = enrichedPantryItems.findIndex(item => item.pantryRowId === match.pantryRowId);
+                if (pantryItemIndex >= 0) {
+                    enrichedPantryItems[pantryItemIndex].quantity -= quantityToUse;
+                }
+
+                needQuantity -= quantityToUse;
             }
-
-            // Mark as consumed
-            consumedItems.push({
-                pantryRowId: bestMatch.pantryRowId,
-                name: bestMatch.name,
-                quantityUsed: needQuantity,
-                availableQuantity: available
-            });
-
-            // Remove from available pool for next ingredient
-            bestMatch.quantity -= needQuantity;
         }
 
         if (consumedItems.length === 0) {
