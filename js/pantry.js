@@ -21,6 +21,38 @@ class PantryService {
         }
     }
     
+    // Add or update item in pantry (consolidates existing items)
+    static async addOrUpdateItem(itemData) {
+        try {
+            // Get all current pantry items
+            const response = await PantryService.getPantryItems();
+            const pantryRows = response.rows || response.data || response || [];
+            const items = Array.isArray(pantryRows) ? pantryRows : [];
+            
+            // Check if an item with the same itemId already exists
+            const existingItem = items.find(item => 
+                (item.itemId || item.item_id) === (itemData.itemId || itemData.item_id)
+            );
+            
+            if (existingItem) {
+                // Item already exists, update its quantity
+                const currentQuantity = Number(existingItem.quantity || 0);
+                const addedQuantity = Number(itemData.quantity || 0);
+                const newQuantity = currentQuantity + addedQuantity;
+                
+                console.log(`Item already in pantry. Updating quantity from ${currentQuantity} to ${newQuantity}`);
+                return await PantryService.updateItemQuantity(existingItem.id, newQuantity);
+            } else {
+                // Item doesn't exist, add it as new
+                console.log('Item not in pantry. Adding as new item.');
+                return await PantryService.addItem(itemData);
+            }
+        } catch (error) {
+            console.error('Failed to add or update pantry item:', error);
+            throw error;
+        }
+    }
+    
     // Remove item from pantry
     static async removeItem(itemId) {
         try {

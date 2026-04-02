@@ -24,7 +24,7 @@ class StoreService {
     // Add store item to pantry
     static async addToPantry(itemData) {
         try {
-            return await PantryService.addItem(itemData);
+            return await PantryService.addOrUpdateItem(itemData);
         } catch (error) {
             console.error('Failed to add item to pantry:', error);
             throw error;
