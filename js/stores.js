@@ -62,7 +62,12 @@ async function loadStores() {
             let storesHTML = '';
 
             stores.forEach(store => {
-                const logoUrl = store.logo_url || store.logoUrl || 'apple.jpg';
+                const logoUrl = store.logo_url
+                    || store.logoUrl
+                    || store.image_url
+                    || store.imageUrl
+                    || store.image
+                    || 'apple.jpg';
                 const address = store.address || 'N/A';
                 const phone = store.phone || 'N/A';
 
