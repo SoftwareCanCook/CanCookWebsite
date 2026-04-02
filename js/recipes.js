@@ -484,6 +484,17 @@ function renderAllRecipes(recipes, emptyMessage = 'No public recipes available y
     container.innerHTML = `<p style="padding: 20px;">${emptyMessage}</p>`;
 }
 
+function shuffleRecipes(recipes) {
+    const shuffled = Array.isArray(recipes) ? [...recipes] : [];
+
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    return shuffled;
+}
+
 async function ensureAllPublicRecipesCache() {
     if (Array.isArray(allPublicRecipesCache) && allPublicRecipesCache.length > 0) {
         return allPublicRecipesCache;
@@ -597,7 +608,7 @@ async function loadAllRecipes() {
             }
         }));
 
-        allPublicRecipesCache = [...recipesWithRatings];
+        allPublicRecipesCache = shuffleRecipes(recipesWithRatings);
         renderAllRecipes(allPublicRecipesCache);
     } catch (error) {
         console.error('Failed to load all recipes:', error);
