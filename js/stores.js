@@ -1,6 +1,6 @@
 // Store Service
 class StoreService {
-    
+
     // Get all stores
     static async getAllStores() {
         try {
@@ -10,7 +10,7 @@ class StoreService {
             return [];
         }
     }
-    
+
     // Get store items
     static async getStoreItems(storeId) {
         try {
@@ -20,7 +20,7 @@ class StoreService {
             return [];
         }
     }
-    
+
     // Add store item to pantry
     static async addToPantry(itemData) {
         try {
@@ -55,19 +55,19 @@ async function loadStores() {
         const response = await StoreService.getAllStores();
         const stores = response.rows || response.data || response || [];
         const container = document.getElementById('storesContainer');
-        
+
         if (!container) return;
-        
+
         if (stores.length > 0) {
             let storesHTML = '';
-            
+
             stores.forEach(store => {
                 const logoUrl = store.logo_url || store.logoUrl || 'apple.jpg';
                 const address = store.address || 'N/A';
                 const phone = store.phone || 'N/A';
-                
+
                 storesHTML += `
-                    <div class="store-container" style="display: flex; align-items: center; border: 2px solid #ddd; border-radius: 8px; padding: 20px; margin: 15px 0; background-color: #f9f9f9; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                    <div class="store-container" style="display: flex; align-items: center; border: 2px solid #ddd; border-radius: 8px; padding: 20px; margin: 15px auto; background-color: #f9f9f9; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
                         <div class="card" style="width: 150px; height: 150px; margin-right: 20px; flex-shrink: 0;">
                             <img src="${logoUrl}" alt="${store.name}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
                         </div>
@@ -80,7 +80,7 @@ async function loadStores() {
                     </div>
                 `;
             });
-            
+
             container.innerHTML = storesHTML;
         } else {
             container.innerHTML = '<p style="padding: 20px; text-align: center; color: #999;">No stores available yet. Check back soon!</p>';
@@ -99,18 +99,18 @@ async function loadStoreItems(storeId, storeName) {
     if (!AuthService.requireAuth()) {
         return;
     }
-    
+
     try {
         currentStore = { id: storeId, name: storeName };
 
         // Update popup title
         document.getElementById('storePopupTitle').textContent = `${storeName} - Inventory`;
-        
+
         const response = await StoreService.getStoreItems(storeId);
         const rawItems = response.rows || response.data || response || [];
         const items = Array.isArray(rawItems) ? rawItems : [];
         const table = document.getElementById('storeItemsTable');
-        
+
         if (table && items.length > 0) {
             // Build table HTML
             let tableHTML = `
@@ -128,7 +128,7 @@ async function loadStoreItems(storeId, storeName) {
                 const stock = item.stock || item.quantity || 0;
                 const unit = item.unit || 'units';
                 const name = item.name || 'Unknown';
-                
+
                 tableHTML += `
                     <tr style="border-bottom: 1px solid #ddd;">
                         <td style="padding: 10px;">${name}</td>
@@ -137,7 +137,7 @@ async function loadStoreItems(storeId, storeName) {
                         <td style="padding: 10px; text-align: center;">${stock}</td>
                         <td style="padding: 10px; text-align: center;">
                 `;
-                
+
                 if (stock > 0) {
                     tableHTML += `
                         <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
@@ -148,23 +148,23 @@ async function loadStoreItems(storeId, storeName) {
                 } else {
                     tableHTML += `<button disabled style="background-color: #999; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: not-allowed; font-size: 12px;">Out of Stock</button>`;
                 }
-                
+
                 tableHTML += `
                         </td>
                     </tr>
                 `;
             });
-            
+
             table.innerHTML = tableHTML;
         } else if (table) {
             table.innerHTML = `
                 <tr><td colspan="5" style="padding: 20px; text-align: center; color: #999;">No items found in this store.</td></tr>
             `;
         }
-        
+
         // Show popup
         document.getElementById('storeItemsPopup').style.display = 'flex';
-        
+
     } catch (error) {
         console.error('Failed to load store items:', error);
         alert('Failed to load store items: ' + error.message);
@@ -187,17 +187,17 @@ function closeStorePopup() {
 async function addItemToPantry(storeId, itemId, itemName, unit, stock) {
     const qtyInput = document.getElementById(`qty-${itemId}`);
     const quantity = parseInt(qtyInput?.value, 10) || 1;
-    
+
     if (quantity > stock) {
         alert(`Only ${stock} ${unit} available in stock`);
         return;
     }
-    
+
     if (quantity < 1) {
         alert('Quantity must be at least 1');
         return;
     }
-    
+
     try {
         const user = AuthService.getUser();
         const itemData = {
@@ -206,7 +206,7 @@ async function addItemToPantry(storeId, itemId, itemName, unit, stock) {
             userId: user.id,
             storeId: storeId
         };
-        
+
         await StoreService.addToPantry(itemData);
 
         const remainingStock = Number(stock) - Number(quantity);
