@@ -64,23 +64,25 @@
 
 
 
-                    <div class="recipe-image">
-                        <!--Retrieve recipe image-->
-                        <img src="apple.jpg" alt="Recipe Image" width="300" height="300">
-                    </div>
-                    <h1 id="name">Loading recipe name...</h1>
-                    <div class="meta-info">
-                        <span class="label">Cook Time:</span>
+                        <div class = "recipe-image">
+                            <!--Retrieve recipe image-->
+                            <img src="apple.jpg" alt="Recipe Image" width="300" height="300">
+                        </div>
+                        <h1 id="name">Loading recipe name...</h1>
+                        <div id="recipeCreator" style="font-size: 14px; color: #555; margin: 6px 0 10px 0;">by Unknown</div>
+                        <div class="meta-info">
+                            <span class="label">Cook Time:</span>
+                           
+                            <span id="cookTime" class="value">Loading...</span>
+                        </div>
+                        <div id="recipeCookTimerAction" style="margin: 8px 0 14px 0;"></div>
 
-                        <span id="cookTime" class="value">Loading...</span>
-                    </div>
-                    <div id="recipeCookTimerAction" style="margin: 8px 0 14px 0;"></div>
-
-                    <div class="rating-display">
-                        <!-- We don't have to get an average rating if we don't have time to implement-->
-                        <h4 id="stars" class="stars">☆☆☆☆☆</span>
-                            <h3 id="averageRating" class="rating-value">loading...</span>
-                    </div>
+                        <div class = "rating-display">
+                            <!-- We don't have to get an average rating if we don't have time to implement-->
+                            <h4 id="stars" class="stars">☆☆☆☆☆</h4>
+                            <h3 id="averageRating" class="rating-value">0.0</h3>
+                            <div id="ratingCount" class="rating-count" style="font-size: 12px; color: #666;"></div>
+                        </div>
 
                     <div id="recipeActions" style="display: none; margin: 10px 0 20px 0;">
                         <button type="button" onclick="cookRecipeAndConsumePantry()"
