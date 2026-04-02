@@ -345,7 +345,7 @@ function renderAllRecipes(recipes, emptyMessage = 'No public recipes available y
     if (recipes.length > 0) {
         container.innerHTML = recipes.map(recipe => `
             <div class="card" onclick="showRecipeDetail(${recipe.id})">
-                <img src="${recipe.image_url || recipe.imageUrl || 'apple.jpg'}" alt="${recipe.name}" width="300" height="300">
+                <img src="${recipe.image_url || recipe.imageUrl || recipe.image || 'apple.jpg'}" alt="${recipe.name}" width="300" height="300">
                 <div class="overlay-text">
                     <a href="#popup">${recipe.name}</a>
                     <div style="font-size: 12px; margin-top: 5px;">by ${recipe.username || recipe.created_by || 'Unknown'}</div>
