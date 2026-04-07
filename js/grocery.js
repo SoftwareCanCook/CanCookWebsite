@@ -88,6 +88,54 @@ const CATEGORY_UNITS = {
 
 const MAX_IMAGE_WIDTH = 400;
 const MAX_IMAGE_HEIGHT = 400;
+const IMAGE_RESIZE_PROXY = 'https://images.weserv.nl/';
+
+function formatImageUrlTo400x400(imageUrl) {
+    if (!imageUrl) return null;
+
+    const trimmedUrl = imageUrl.trim();
+    if (!trimmedUrl) return null;
+
+    // Avoid re-wrapping URLs that are already using the resize proxy.
+    if (trimmedUrl.startsWith(IMAGE_RESIZE_PROXY)) {
+        return trimmedUrl;
+    }
+
+    const strippedProtocol = trimmedUrl.replace(/^https?:\/\//i, '');
+    const resizedUrl = new URL(IMAGE_RESIZE_PROXY);
+    resizedUrl.searchParams.set('url', strippedProtocol);
+    resizedUrl.searchParams.set('w', String(MAX_IMAGE_WIDTH));
+    resizedUrl.searchParams.set('h', String(MAX_IMAGE_HEIGHT));
+    resizedUrl.searchParams.set('fit', 'cover');
+
+    return resizedUrl.toString();
+}
+
+function getOriginalImageUrl(imageUrl) {
+    if (!imageUrl) return null;
+
+    const trimmedUrl = imageUrl.trim();
+    if (!trimmedUrl) return null;
+
+    if (!trimmedUrl.startsWith(IMAGE_RESIZE_PROXY)) {
+        return trimmedUrl;
+    }
+
+    try {
+        const proxyUrl = new URL(trimmedUrl);
+        const rawUrlParam = proxyUrl.searchParams.get('url');
+        if (!rawUrlParam) return trimmedUrl;
+
+        if (/^https?:\/\//i.test(rawUrlParam)) {
+            return rawUrlParam;
+        }
+
+        return `https://${rawUrlParam}`;
+    } catch (error) {
+        console.warn('Failed to extract original image URL from proxy URL:', error.message);
+        return trimmedUrl;
+    }
+}
 
 function validateImageDimensions(imageUrl) {
     return new Promise((resolve, reject) => {
@@ -148,7 +196,7 @@ function editItem(itemId, name, category, unit, quantity, image) {
     updateUnitOptions();
     document.getElementById('itemUnit').value = unit;
     document.getElementById('itemQuantity').value = quantity;
-    document.getElementById('itemImageUrl').value = image || '';
+    document.getElementById('itemImageUrl').value = getOriginalImageUrl(image) || '';
     document.getElementById('itemFormSection').style.display = 'block';
     
     // Scroll to form
@@ -193,16 +241,14 @@ async function saveItem() {
         return;
     }
 
-    if (imageUrl) {
+    const formattedImageUrl = formatImageUrlTo400x400(imageUrl);
+
+    if (formattedImageUrl) {
         try {
-            const isValidImageSize = await validateImageDimensions(imageUrl);
-            if (!isValidImageSize) {
-                alert(`Image must be ${MAX_IMAGE_WIDTH}x${MAX_IMAGE_HEIGHT} pixels or smaller.`);
-                return;
-            }
+            // Best-effort check only. Some remote images block client-side probing.
+            await validateImageDimensions(formattedImageUrl);
         } catch (error) {
-            alert('Unable to validate image URL. Please check the URL and try again.');
-            return;
+            console.warn('Image pre-validation failed, continuing with formatted URL:', error.message);
         }
     }
     
@@ -212,12 +258,13 @@ async function saveItem() {
         unit,
         quantity,
         stock: quantity,
-        image: imageUrl || null  // Backend expects 'image' field
+        image: imageUrl || null  // Store the original URL; resize formatting is applied on render.
     };
     
     console.log('=== SAVE ITEM CALLED ===');
     console.log('Item ID:', itemId, '(empty = new item)');
-    console.log('Image URL length:', imageUrl?.length || 0, 'chars');
+    console.log('Original image URL length:', imageUrl?.length || 0, 'chars');
+    console.log('Formatted image URL length:', formattedImageUrl?.length || 0, 'chars');
     console.log('Item Data to save:', itemData);
     console.log('Item Data JSON:', JSON.stringify(itemData, null, 2));
     
@@ -331,7 +378,10 @@ async function loadAllItems() {
             if (items && items.length > 0) {
                 items.forEach(item => {
                     const quantity = item.quantity || item.stock || 0;
-                    const imageUrl = item.image || item.image_url || item.imageUrl || 'apple.jpg';
+                    const storedImageUrl = item.image || item.image_url || item.imageUrl || '';
+                    const originalImageUrl = getOriginalImageUrl(storedImageUrl) || '';
+                    const resizedImageUrl = formatImageUrlTo400x400(originalImageUrl);
+                    const imageUrl = resizedImageUrl || originalImageUrl || 'apple.jpg';
                     const unit = item.unit || 'units';
                     
                     // Log item 2 specifically for debugging
@@ -339,13 +389,14 @@ async function loadAllItems() {
                         console.log(`=== RENDERING ITEM 2 (Onions) ===`);
                         console.log(`Quantity from data: ${quantity}`);
                         console.log(`Unit from data: ${unit}`);
-                        console.log(`Image from data: ${imageUrl ? imageUrl.substring(0, 50) + '...' : 'none'}`);
+                        console.log(`Original image from data: ${originalImageUrl ? originalImageUrl.substring(0, 50) + '...' : 'none'}`);
+                        console.log(`Formatted image for render: ${imageUrl ? imageUrl.substring(0, 50) + '...' : 'none'}`);
                         console.log(`Full item JSON:`, JSON.stringify(item));
                     }
                     
                     tableHTML += `
                         <tr>
-                            <td><img src=\"${imageUrl}\" alt=\"${item.name}\" style=\"width: 50px; height: 50px; object-fit: cover; border-radius: 4px;\"></td>
+                            <td><img src=\"${imageUrl}\" data-original=\"${originalImageUrl.replace(/"/g, '&quot;')}\" alt=\"${item.name}\" onerror=\"if (this.dataset.original && this.src !== this.dataset.original) { this.src = this.dataset.original; } else { this.onerror = null; this.src = 'apple.jpg'; }\" style=\"width: 50px; height: 50px; object-fit: cover; border-radius: 4px;\"></td>
                             <td>${item.name || 'N/A'}</td>
                             <td>${item.category || 'N/A'}</td>
                             <td>${unit}</td>
@@ -355,7 +406,7 @@ async function loadAllItems() {
                                 <button onclick=\"updateQuantity(${item.id}, ${quantity + 1})\" style=\"padding: 2px 8px; margin: 0 2px;\">+</button>
                             </td>
                             <td>
-                                <button onclick='editItem(${item.id}, \"${item.name.replace(/"/g, '&quot;')}\", \"${item.category}\", \"${unit}\", ${quantity}, \"${imageUrl.replace(/"/g, '&quot;')}\")' style=\"background-color: #2196F3; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;\">Edit</button>
+                                <button onclick='editItem(${item.id}, \"${item.name.replace(/"/g, '&quot;')}\", \"${item.category}\", \"${unit}\", ${quantity}, \"${originalImageUrl.replace(/"/g, '&quot;')}\")' style=\"background-color: #2196F3; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;\">Edit</button>
                                 <button onclick=\"handleDeleteItem(${item.id})\" style=\"background-color: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer;\">Delete</button>
                             </td>
                         </tr>

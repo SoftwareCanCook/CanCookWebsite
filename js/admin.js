@@ -50,16 +50,21 @@ class AdminService {
             const dataFormats = [
                 { isActive: 1, loginAttempts: 0, status: 1 },
                 { is_active: 1, login_attempts: 0, status: 1 },
+                { status: 1, failed_login_attempts: 0 },
+                { status: 1, failedLoginAttempts: 0 },
                 { status: 1, login_attempts: 0 },
                 { status: 1, loginAttempts: 0 },
             ];
             
+            let unlockResult = null;
+
             for (let i = 0; i < dataFormats.length; i++) {
                 try {
                     console.log(`Trying data format ${i + 1}:`, dataFormats[i]);
                     const result = await ApiService.put(API_CONFIG.ENDPOINTS.USER + '/' + userId, dataFormats[i]);
                     console.log('Unlock successful with format:', dataFormats[i]);
-                    return result;
+                    unlockResult = result;
+                    break;
                 } catch (error) {
                     console.log(`Format ${i + 1} failed:`, error.message);
                     if (i === dataFormats.length - 1) {
@@ -67,6 +72,21 @@ class AdminService {
                     }
                 }
             }
+
+            // Force-reset common login attempt fields to make sure attempts show as 0 after unlock.
+            const resetAttemptsPayload = {
+                status: 1,
+                login_attempts: 0,
+                loginAttempts: 0,
+                failed_login_attempts: 0,
+                failedLoginAttempts: 0,
+                attempts: 0
+            };
+
+            console.log('Applying explicit login-attempt reset payload:', resetAttemptsPayload);
+            await ApiService.put(API_CONFIG.ENDPOINTS.USER + '/' + userId, resetAttemptsPayload);
+
+            return unlockResult;
         } catch (error) {
             console.error('All unlock attempts failed:', error);
             throw error;
