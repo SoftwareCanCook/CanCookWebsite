@@ -2574,6 +2574,28 @@ async function submitRecipe(event) {
         return;
     }
 
+    const normalizeRecipeName = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+    if (!recipeId) {
+        try {
+            const allRecipesResponse = await RecipeService.getAllRecipes();
+            const existingRecipes = extractApiRows(allRecipesResponse);
+            const normalizedTargetName = normalizeRecipeName(name);
+
+            const duplicateExists = existingRecipes.some(recipe => {
+                const existingName = recipe?.name || recipe?.recipe_name || recipe?.title;
+                return normalizeRecipeName(existingName) === normalizedTargetName;
+            });
+
+            if (duplicateExists) {
+                alert('Recipe has already been created.');
+                return;
+            }
+        } catch (duplicateCheckError) {
+            console.warn('Unable to verify duplicate recipe names before create:', duplicateCheckError);
+        }
+    }
+
     const ingredientLines = ingredientsText.split('\n').map(l => l.trim()).filter(Boolean);
     const instructions = instructionsText.split('\n').filter(line => line.trim()).join('\n');
 
