@@ -227,6 +227,11 @@ async function loadPantryItems() {
             }
         });
         
+        // Sort items alphabetically within each category
+        Object.keys(categories).forEach(category => {
+            categories[category].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        });
+        
         // Populate each category table
         populateCategoryTable('producTable', categories['Produce']);
         populateCategoryTable('meatsTable', categories['Meats & Seafood']);

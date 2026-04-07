@@ -114,6 +114,10 @@ async function loadStoreItems(storeId, storeName) {
         const response = await StoreService.getStoreItems(storeId);
         const rawItems = response.rows || response.data || response || [];
         const items = Array.isArray(rawItems) ? rawItems : [];
+        
+        // Sort items alphabetically by name
+        items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        
         const table = document.getElementById('storeItemsTable');
 
         if (table && items.length > 0) {
