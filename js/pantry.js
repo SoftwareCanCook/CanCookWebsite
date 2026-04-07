@@ -107,6 +107,75 @@ async function buildItemLookup() {
     return lookup;
 }
 
+function normalizeImageUrl(rawUrl) {
+    const value = String(rawUrl || '').trim().replace(/&amp;/g, '&');
+    if (!value) {
+        return '';
+    }
+
+    if (/^https?:\/\//i.test(value) || /^data:/i.test(value)) {
+        return value;
+    }
+
+    if (value.startsWith('//')) {
+        return `https:${value}`;
+    }
+
+    if (/^images\.weserv\.nl\//i.test(value)) {
+        return `https://${value}`;
+    }
+
+    if (/^[a-z0-9.-]+\.[a-z]{2,}\/+/i.test(value)) {
+        return `https://${value}`;
+    }
+
+    return value;
+}
+
+function extractOriginalFromProxy(imageUrl) {
+    const normalized = normalizeImageUrl(imageUrl);
+    if (!normalized) {
+        return '';
+    }
+
+    if (!/^https?:\/\/images\.weserv\.nl\//i.test(normalized)) {
+        return normalized;
+    }
+
+    try {
+        const proxyUrl = new URL(normalized);
+        const raw = proxyUrl.searchParams.get('url');
+        if (!raw) {
+            return normalized;
+        }
+        return normalizeImageUrl(raw);
+    } catch (error) {
+        return normalized;
+    }
+}
+
+function escapeHtmlAttr(value) {
+    return String(value || '').replace(/"/g, '&quot;');
+}
+
+function resolvePantryImageUrl(row, meta) {
+    const candidates = [
+        meta?.image,
+        row?.image_url,
+        row?.imageUrl,
+        row?.image
+    ];
+
+    for (const candidate of candidates) {
+        const value = normalizeImageUrl(candidate);
+        if (value) {
+            return value;
+        }
+    }
+
+    return 'apple.jpg';
+}
+
 // Load and display pantry items
 async function loadPantryItems() {
     if (!AuthService.requireRole(['user'])) {
@@ -133,7 +202,7 @@ async function loadPantryItems() {
                 name: row.name || row.item_name || row.itemName || meta.name || `Item #${id}`,
                 category: row.category || row.item_category || meta.category || 'Pantry Staples',
                 unit: row.unit || meta.unit || 'units',
-                image_url: row.image_url || row.imageUrl || meta.image || null,
+                image_url: resolvePantryImageUrl(row, meta),
                 store_name: row.store_name || row.storeName || meta.storeName || 'Unknown Store',
                 quantity: row.quantity || 0
             };
@@ -191,14 +260,15 @@ function populateCategoryTable(tableId, items) {
     `;
     
     items.forEach(item => {
-        const imageUrl = item.image_url || item.imageUrl || 'apple.jpg';
+        const imageUrl = normalizeImageUrl(item.image_url || item.imageUrl || 'apple.jpg');
+        const originalImageUrl = extractOriginalFromProxy(imageUrl);
         const storeName = item.store_name || item.storeName || 'Unknown Store';
         const quantity = item.quantity || 0;
         const unit = item.unit || 'units';
         
         tableHTML += `
             <tr>
-                <td><img src="${imageUrl}" alt="${item.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;"></td>
+                <td><img src="${imageUrl}" data-original="${escapeHtmlAttr(originalImageUrl)}" alt="${item.name}" onerror="if (this.dataset.original && this.src !== this.dataset.original) { this.src = this.dataset.original; } else { this.onerror = null; this.src = 'apple.jpg'; }" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;"></td>
                 <td>${item.name || 'Unknown Item'}</td>
                 <td>${storeName}</td>
                 <td>${quantity} ${unit}</td>

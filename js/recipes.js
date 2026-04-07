@@ -583,11 +583,29 @@ async function loadAllRecipes() {
         const recipesWithRatings = await Promise.all(recipes.map(async (recipe) => {
             try {
                 const ratingRows = await RecipeService.getRatingsForRecipe(recipe.id);
+                const ratingRowsWithLocal = applyLocalRatingOverridesToRows(recipe.id, ratingRows);
                 const creatorLabel = await resolveRecipeCreatorLabel(recipe);
-                const summary = {
-                    average: computeAverageRatingFromRows(ratingRows),
-                    count: ratingRows.length
+                let summary = {
+                    average: computeAverageRatingFromRows(ratingRowsWithLocal),
+                    count: ratingRowsWithLocal.length
                 };
+
+                // If the ratings endpoint returns nothing, fall back to ratings on comments.
+                if (summary.count === 0 || summary.average <= 0) {
+                    const commentRows = await RecipeService.getCommentsForRecipe(recipe.id);
+                    const ratingLookup = buildRatingLookupByUser(ratingRowsWithLocal);
+                    const commentRatings = commentRows
+                        .map(comment => resolveCommentRating(comment, ratingLookup))
+                        .filter(rating => Number.isFinite(rating) && rating > 0);
+
+                    if (commentRatings.length > 0) {
+                        const total = commentRatings.reduce((sum, value) => sum + value, 0);
+                        summary = {
+                            average: total / commentRatings.length,
+                            count: commentRatings.length
+                        };
+                    }
+                }
 
                 return {
                     ...recipe,
@@ -782,6 +800,7 @@ function normalizeRecipeList(value) {
 
 const RECIPE_INGREDIENTS_CACHE_KEY = 'cancookRecipeIngredientsCache';
 const SAVED_PUBLIC_RECIPES_KEY = 'cancookSavedPublicRecipesByUser';
+const LOCAL_RECIPE_RATING_OVERRIDES_KEY = 'cancookRecipeRatingOverridesByRecipe';
 
 function getSavedPublicRecipesStorage() {
     try {
@@ -798,6 +817,77 @@ function getSavedPublicRecipesStorage() {
 
 function setSavedPublicRecipesStorage(value) {
     localStorage.setItem(SAVED_PUBLIC_RECIPES_KEY, JSON.stringify(value));
+}
+
+function getLocalRecipeRatingOverridesStorage() {
+    try {
+        const raw = localStorage.getItem(LOCAL_RECIPE_RATING_OVERRIDES_KEY);
+        if (!raw) {
+            return {};
+        }
+
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function setLocalRecipeRatingOverridesStorage(value) {
+    localStorage.setItem(LOCAL_RECIPE_RATING_OVERRIDES_KEY, JSON.stringify(value));
+}
+
+function setLocalRecipeUserRating(recipeId, userId, rating) {
+    const numericRecipeId = Number(recipeId);
+    const numericUserId = Number(userId);
+    const numericRating = Math.max(1, Math.min(5, Number(rating) || 0));
+
+    if (!Number.isFinite(numericRecipeId) || !Number.isFinite(numericUserId) || !Number.isFinite(numericRating) || numericRating <= 0) {
+        return;
+    }
+
+    const storage = getLocalRecipeRatingOverridesStorage();
+    const recipeKey = String(numericRecipeId);
+    const bucket = storage[recipeKey] && typeof storage[recipeKey] === 'object' ? storage[recipeKey] : {};
+
+    bucket[String(numericUserId)] = numericRating;
+    storage[recipeKey] = bucket;
+    setLocalRecipeRatingOverridesStorage(storage);
+}
+
+function applyLocalRatingOverridesToRows(recipeId, ratingRows) {
+    const mergedByUser = new Map();
+
+    (Array.isArray(ratingRows) ? ratingRows : []).forEach(row => {
+        const userId = row?.user_id ?? row?.userId;
+        if (userId === undefined || userId === null) {
+            return;
+        }
+
+        mergedByUser.set(String(userId), {
+            ...row,
+            user_id: Number(userId),
+            userId: Number(userId),
+            rating: Number(row?.rating)
+        });
+    });
+
+    const overrides = getLocalRecipeRatingOverridesStorage()[String(Number(recipeId))] || {};
+    Object.entries(overrides).forEach(([userId, rating]) => {
+        const numericRating = Number(rating);
+        if (!Number.isFinite(numericRating) || numericRating <= 0) {
+            return;
+        }
+
+        mergedByUser.set(String(userId), {
+            user_id: Number(userId),
+            userId: Number(userId),
+            rating: numericRating,
+            source: 'local-override'
+        });
+    });
+
+    return Array.from(mergedByUser.values());
 }
 
 function getSavedPublicRecipeIds(userId) {
@@ -2082,19 +2172,20 @@ async function showRecipeDetail(recipeId) {
             RecipeService.getCommentsForRecipe(recipeId),
             RecipeService.getRatingsForRecipe(recipeId)
         ]);
+        const ratingRowsWithLocal = applyLocalRatingOverridesToRows(recipeId, ratingRows);
         const visibleComments = comments.length > 0 ? comments : fallbackComments;
-        const ratingLookup = buildRatingLookupByUser(ratingRows);
+        const ratingLookup = buildRatingLookupByUser(ratingRowsWithLocal);
 
         // Compute average rating from ratings first, then fall back to comment-linked ratings or recipe fields.
         const commentRatings = visibleComments
             .map(comment => resolveCommentRating(comment, ratingLookup))
             .filter(rating => Number.isFinite(rating) && rating > 0);
-        const computedAverage = computeAverageRatingFromRows(ratingRows);
+        const computedAverage = computeAverageRatingFromRows(ratingRowsWithLocal);
         const commentAverage = commentRatings.length > 0 ? commentRatings.reduce((a, b) => a + b, 0) / commentRatings.length : 0;
 
         // Update rating
         const avgRating = parseFloat((computedAverage > 0 ? computedAverage : (commentAverage > 0 ? commentAverage : (recipe.average_rating || recipe.averageRating || 0))) || 0);
-        const ratingCount = parseInt((ratingRows.length > 0 ? ratingRows.length : (commentRatings.length > 0 ? commentRatings.length : (recipe.rating_count || recipe.ratingCount || 0))) || 0, 10);
+        const ratingCount = parseInt((ratingRowsWithLocal.length > 0 ? ratingRowsWithLocal.length : (commentRatings.length > 0 ? commentRatings.length : (recipe.rating_count || recipe.ratingCount || 0))) || 0, 10);
         const ratingEl = document.getElementById('rating') || document.getElementById('averageRating');
         const ratingCountEl = document.getElementById('ratingCount');
         if (ratingEl) {
@@ -2781,6 +2872,7 @@ async function submitComment(event) {
     try {
         // Submit comment with rating included - no need to submit rating separately
         await RecipeService.addComment(currentRecipeId, userId, comment, rating);
+        setLocalRecipeUserRating(currentRecipeId, userId, rating);
         alert('Review submitted successfully!');
         
         // Reset form
@@ -2788,8 +2880,13 @@ async function submitComment(event) {
         document.getElementById('commentText').value = '';
         currentUserCommentId = null;
         
-        // Reload recipe to show new comment
-        showRecipeDetail(currentRecipeId);
+        // Reload popup details and both recipe rails so rating/comment changes show immediately.
+        const recipeIdToRefresh = currentRecipeId;
+        await showRecipeDetail(recipeIdToRefresh);
+        await Promise.allSettled([
+            loadAllRecipes(),
+            loadUserRecipes()
+        ]);
     } catch (error) {
         console.error('Failed to submit comment:', error);
         alert('Failed to submit review: ' + error.message);
