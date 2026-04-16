@@ -1079,7 +1079,15 @@ async function fetchUserPantryItemsForRecipeForm() {
     }
 
     const pantryItemsRaw = pantryResponse.rows || pantryResponse.data || pantryResponse.items || pantryResponse || [];
-    const pantryItems = Array.isArray(pantryItemsRaw) ? pantryItemsRaw : [];
+    let pantryItems = Array.isArray(pantryItemsRaw) ? pantryItemsRaw : [];
+    
+    // Filter to only include items belonging to the current user
+    const currentUser = AuthService.getUser();
+    if (currentUser && currentUser.id) {
+        pantryItems = pantryItems.filter(item => 
+            (item.userId || item.user_id) == currentUser.id
+        );
+    }
 
     let groceryItems = [];
     try {
@@ -1743,10 +1751,18 @@ async function checkRecipeIngredientAvailability(recipe) {
 
         // Fetch user's pantry items
         const pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY);
-        const pantryItems = pantryResponse.rows || pantryResponse.data || pantryResponse || [];
+        let pantryItems = pantryResponse.rows || pantryResponse.data || pantryResponse || [];
         
         if (!Array.isArray(pantryItems)) {
             return { available: [], insufficient: ingredientTexts };
+        }
+        
+        // Filter to only include items belonging to the current user
+        const currentUser = AuthService.getUser();
+        if (currentUser && currentUser.id) {
+            pantryItems = pantryItems.filter(item => 
+                (item.userId || item.user_id) == currentUser.id
+            );
         }
 
         // Build item lookup from stores
@@ -1877,11 +1893,19 @@ async function cookRecipeAndConsumePantry() {
 
         // Fetch user's pantry items
         const pantryResponse = await ApiService.get(API_CONFIG.ENDPOINTS.PANTRY);
-        const pantryItems = pantryResponse.rows || pantryResponse.data || pantryResponse || [];
+        let pantryItems = pantryResponse.rows || pantryResponse.data || pantryResponse || [];
         
         if (!Array.isArray(pantryItems)) {
             alert('Could not load your pantry. Please try again.');
             return;
+        }
+        
+        // Filter to only include items belonging to the current user
+        const currentUser = AuthService.getUser();
+        if (currentUser && currentUser.id) {
+            pantryItems = pantryItems.filter(item => 
+                (item.userId || item.user_id) == currentUser.id
+            );
         }
 
         // Build item lookup from stores

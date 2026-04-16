@@ -58,7 +58,7 @@ class PantryService {
                 console.log(`Item already in pantry. Updating quantity from ${currentQuantity} to ${newQuantity}`);
                 return await PantryService.updateItemQuantity(existingItem.id, newQuantity, userId);
             } else {
-                // Item doesn't exist, add it as new
+                // Item doesn't exist, add it as new entry
                 console.log('Item not in pantry. Adding as new item.');
                 return await PantryService.addItem({ ...itemData, userId });
             }
