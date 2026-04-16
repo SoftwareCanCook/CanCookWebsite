@@ -979,13 +979,36 @@ function matchIngredientToItem(line, groceryItems) {
     const { quantity, unit, ingredientName } = parseIngredientLine(line);
     if (!ingredientName) return null;
     const nameLower = ingredientName.toLowerCase();
-    const matched = groceryItems.find(item => {
-        const itemName = (item.name || '').toLowerCase();
-        return itemName === nameLower ||
-               itemName.includes(nameLower) ||
-               nameLower.includes(itemName);
-    });
-    if (!matched) return null;
+    
+    // Score matches with preference for exact/complete matches
+    const scoredMatches = groceryItems
+        .map(item => {
+            const itemName = (item.name || '').toLowerCase();
+            let score = 0;
+            
+            // Exact match - highest priority
+            if (itemName === nameLower) {
+                score = 10000;
+            }
+            // Ingredient text is fully contained in item name (e.g., "eggs" in "Organic eggs")
+            else if (itemName.includes(nameLower) && nameLower.length > 3) {
+                // Prefer longer item names (more specific)
+                score = 5000 + itemName.length;
+            }
+            // Item name is fully contained in ingredient text (e.g., "organic" in "Organic eggs")
+            else if (nameLower.includes(itemName) && itemName.length > 3) {
+                // Prefer longer item names (more specific)
+                score = 3000 + itemName.length;
+            }
+            
+            return { item, score };
+        })
+        .filter(m => m.score > 0)
+        .sort((a, b) => b.score - a.score);
+    
+    if (scoredMatches.length === 0) return null;
+    
+    const matched = scoredMatches[0].item;
     return {
         itemId: matched.id,
         quantityNeeded: quantity,
@@ -1294,6 +1317,7 @@ async function validateRecipeCreationAgainstPantry(ingredientLines, matchedIngre
 
     const pantryItems = await fetchUserPantryItemsForRecipeForm();
     const pantryByItemId = new Map();
+    const pantryByNameLower = new Map(); // Fuzzy match by name
 
     pantryItems.forEach(item => {
         const key = String(item.itemId);
@@ -1305,6 +1329,20 @@ async function validateRecipeCreationAgainstPantry(ingredientLines, matchedIngre
             unit: item.unit,
             quantity: nextQty
         });
+        
+        // Also index by lower case name for fuzzy matching
+        const nameLower = (item.name || '').toLowerCase();
+        if (nameLower) {
+            const nameKey = nameLower;
+            const currentName = pantryByNameLower.get(nameKey);
+            const nextQtyName = Number(item.quantity || 0) + Number(currentName?.quantity || 0);
+            pantryByNameLower.set(nameKey, {
+                itemId: item.itemId,
+                name: item.name,
+                unit: item.unit,
+                quantity: nextQtyName
+            });
+        }
     });
 
     const neededByItemId = new Map();
@@ -1322,7 +1360,26 @@ async function validateRecipeCreationAgainstPantry(ingredientLines, matchedIngre
 
     const shortages = [];
     for (const needed of neededByItemId.values()) {
-        const available = pantryByItemId.get(String(needed.itemId));
+        let available = pantryByItemId.get(String(needed.itemId));
+        
+        // If exact item ID match not found, try fuzzy name matching
+        if (!available) {
+            const neededNameLower = (needed.name || '').toLowerCase();
+            available = pantryByNameLower.get(neededNameLower);
+            
+            // Still not found, try substring matching as last resort
+            if (!available) {
+                for (const [, pantryItem] of pantryByNameLower) {
+                    const pantryNameLower = (pantryItem.name || '').toLowerCase();
+                    // Match if ingredient name contains pantry item name, or vice versa
+                    if (neededNameLower.includes(pantryNameLower) || pantryNameLower.includes(neededNameLower)) {
+                        available = pantryItem;
+                        break; // Use first match
+                    }
+                }
+            }
+        }
+        
         const availableQty = Number(available?.quantity || 0);
         if (availableQty < Number(needed.quantity || 0)) {
             shortages.push({
@@ -1796,11 +1853,20 @@ async function checkRecipeIngredientAvailability(recipe) {
             for (const pantryItem of enrichedPantryItems) {
                 const pantryNameLower = pantryItem.name.toLowerCase();
                 
-                // Simple fuzzy matching
+                // Intelligent scoring - prefer exact and more complete matches
                 let score = 0;
-                if (pantryNameLower === needName) score = 100;
-                else if (pantryNameLower.includes(needName)) score = 50;
-                else if (needName.includes(pantryNameLower)) score = 25;
+                if (pantryNameLower === needName) {
+                    // Exact match - highest priority
+                    score = 10000;
+                } else if (pantryNameLower.includes(needName) && needName.length > 3) {
+                    // Pantry name contains the ingredient name (e.g., "Organic eggs" contains "eggs")
+                    // Prefer longer pantry names (more specific)
+                    score = 5000 + pantryNameLower.length;
+                } else if (needName.includes(pantryNameLower) && pantryNameLower.length > 3) {
+                    // Ingredient name contains pantry name (e.g., "eggs" in "Organic eggs")
+                    // Prefer longer pantry names (more specific)
+                    score = 3000 + pantryNameLower.length;
+                }
                 
                 if (score > 0) {
                     matches.push({ ...pantryItem, score });
