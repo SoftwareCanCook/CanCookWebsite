@@ -153,13 +153,13 @@ async function handleLogin(event) {
     }
 }
 
-// Validate username (must be exactly 8 lowercase characters)
+// Validate username (must be 1 to 8 lowercase characters)
 function validateUsername(username) {
-    const usernameRegex = /^[a-z]{8}$/;
+    const usernameRegex = /^[a-z]{1,8}$/;
     if (!usernameRegex.test(username)) {
         return {
             valid: false,
-            message: 'Username must be exactly 8 lowercase letters (a-z)'
+            message: 'Username must be 1 to 8 lowercase letters (a-z)'
         };
     }
     return { valid: true };

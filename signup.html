@@ -23,12 +23,11 @@
                 <input type="email" id="email" aria-label="Enter your email" required>
                 <br><br>
                 
-                <label for="userUsername">Username <small>(exactly 8 lowercase characters)</small></label>
+                  <label for="userUsername">Username <small>(up to 8 lowercase characters)</small></label>
                 <input type="text" id="userUsername" aria-label="Enter a username" 
-                       pattern="[a-z]{8}" 
+                      pattern="[a-z]{1,8}" 
                        maxlength="8" 
-                       minlength="8"
-                       title="Username must be exactly 8 lowercase letters"
+                      title="Username must be 1 to 8 lowercase letters"
                        required>
                 <span id="usernameError" style="color: red; font-size: 12px; display: none;"></span>
                 <br><br>
