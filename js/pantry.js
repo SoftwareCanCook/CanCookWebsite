@@ -14,7 +14,13 @@ class PantryService {
     // Add item to pantry
     static async addItem(itemData) {
         try {
-            return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_PANTRY_ITEM, itemData);
+            // Ensure userId is included in the request
+            const user = AuthService.getUser();
+            const requestData = {
+                ...itemData,
+                userId: itemData.userId || user?.id
+            };
+            return await ApiService.post(API_CONFIG.ENDPOINTS.ADD_PANTRY_ITEM, requestData);
         } catch (error) {
             console.error('Failed to add pantry item:', error);
             throw error;
@@ -24,12 +30,21 @@ class PantryService {
     // Add or update item in pantry (consolidates existing items)
     static async addOrUpdateItem(itemData) {
         try {
-            // Get all current pantry items
+            // Ensure we have userId from the current user or itemData
+            const user = AuthService.getUser();
+            const userId = itemData.userId || user?.id;
+            
+            // Get all current pantry items for the current user
             const response = await PantryService.getPantryItems();
             const pantryRows = response.rows || response.data || response || [];
-            const items = Array.isArray(pantryRows) ? pantryRows : [];
+            let items = Array.isArray(pantryRows) ? pantryRows : [];
             
-            // Check if an item with the same itemId already exists
+            // Filter to only include items belonging to the current user
+            items = items.filter(item => 
+                (item.userId || item.user_id) == userId
+            );
+            
+            // Check if an item with the same itemId already exists (for this user)
             const existingItem = items.find(item => 
                 (item.itemId || item.item_id) === (itemData.itemId || itemData.item_id)
             );
@@ -41,11 +56,11 @@ class PantryService {
                 const newQuantity = currentQuantity + addedQuantity;
                 
                 console.log(`Item already in pantry. Updating quantity from ${currentQuantity} to ${newQuantity}`);
-                return await PantryService.updateItemQuantity(existingItem.id, newQuantity);
+                return await PantryService.updateItemQuantity(existingItem.id, newQuantity, userId);
             } else {
                 // Item doesn't exist, add it as new
                 console.log('Item not in pantry. Adding as new item.');
-                return await PantryService.addItem(itemData);
+                return await PantryService.addItem({ ...itemData, userId });
             }
         } catch (error) {
             console.error('Failed to add or update pantry item:', error);
@@ -64,11 +79,15 @@ class PantryService {
     }
     
     // Update item quantity
-    static async updateItemQuantity(itemId, quantity) {
+    static async updateItemQuantity(itemId, quantity, userId = null) {
         try {
-            return await ApiService.put(API_CONFIG.ENDPOINTS.REMOVE_PANTRY_ITEM + itemId, {
-                quantity
-            });
+            // Ensure userId is included in the request for proper filtering
+            const user = AuthService.getUser();
+            const requestData = {
+                quantity,
+                userId: userId || user?.id
+            };
+            return await ApiService.put(API_CONFIG.ENDPOINTS.REMOVE_PANTRY_ITEM + itemId, requestData);
         } catch (error) {
             console.error('Failed to update pantry item:', error);
             throw error;
@@ -190,7 +209,15 @@ async function loadPantryItems() {
         ]);
 
         const rawItems = response.rows || response.data || response || [];
-        const pantryRows = Array.isArray(rawItems) ? rawItems : [];
+        let pantryRows = Array.isArray(rawItems) ? rawItems : [];
+        
+        // Filter to only show items belonging to the current user
+        const currentUser = AuthService.getUser();
+        if (currentUser && currentUser.id) {
+            pantryRows = pantryRows.filter(item => 
+                (item.userId || item.user_id) == currentUser.id
+            );
+        }
 
         // Enrich each row with name/category/unit from the lookup
         const items = pantryRows.map(row => {
