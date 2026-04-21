@@ -1,4 +1,6 @@
 // Authentication Service
+const MAX_LOGIN_ATTEMPTS = 3;
+
 class AuthService {
 
     // Login user
